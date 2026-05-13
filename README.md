@@ -1,78 +1,71 @@
-# OnionMCC — Minecraft Ghost Client
+# OnionMCC
 
-**Open-source injectable ghost client for Minecraft 1.8–1.21.x**
+**Undetectable Injectable Ghost Client for Minecraft 1.8.x**
 
-Designed for anarchy servers and environments where modifications are permitted.
+OnionMCC is a heavily optimized, deeply integrated ghost client designed to bypass modern server-side anticheats (such as Matrix) through raw hardware emulation and asynchronous execution. It operates entirely externally via a JavaFX UI, communicating with the injected payload over a secure TCP IPC bridge.
 
-## Features
+## Core Architecture
 
-### 🏗️ Architecture
-- **Java Attach API injection** — no native code needed
-- **Reflection-based** Minecraft access via version-specific JSON mappings
-- **External JavaFX GUI** with modern dark theme
-- **TCP IPC** for real-time module state sync between GUI and injected client
-- **Profile-based config** with JSON persistence
+- **Java Attach API Injection**: Zero native code footprint. Injects directly into the target JVM (Vanilla, Forge, or OptiFine).
+- **Dynamic Obfuscation Mapping**: Resolves SRG and Notch names on the fly, allowing seamless execution regardless of the target's classloader environment.
+- **Asynchronous Execution**: Bypasses the standard 50ms Minecraft tick quantization. Combat modules execute in isolated daemon threads with mathematical Gaussian delays to synthesize raw, human-like standard deviations.
+- **Hardware-Level Input Polling**: Utilizes JNA to poll Windows Virtual Key Codes (`GetAsyncKeyState`), allowing keybinds and mouse buttons to trigger instantaneously without relying on the game's internal focus or input handling.
 
-### ⚔️ Combat (8 modules)
-| Module | Description |
-|--------|-------------|
-| KillAura | Auto-attacks nearby entities with configurable range, CPS, FOV, priority |
-| TriggerBot | Attacks crosshair target with randomized timing |
-| Reach | Extends attack distance (3.0–6.0 blocks) |
-| Velocity | Reduces/cancels knockback (Simple, Cancel, Reverse modes) |
-| AutoClicker | Randomized CPS with jitter simulation |
-| Criticals | Forces critical hits (Packet, Jump, MiniJump modes) |
-| WTap | Re-sprint combo optimization |
-| AimAssist | Smooth rotation toward targets within FOV |
+## Module Roster
 
-### 🏃 Movement (6 modules)
-Sprint, Speed (Vanilla/BHop/Strafe), Flight (Vanilla/Glide/Jetpack), NoFall, Step, NoSlowdown
+### Combat
+* **KillAura**: Asynchronous, highly erratic Gaussian timing bypasses stdDev and sync checks. Advanced GCD patching mimics physical mouse movement.
+* **SilentKiller**: Attacks out-of-FOV entities silently with strict swing-before-attack packet ordering.
+* **SilentAim**: Magnetizes hits outside the crosshair without visual snapping.
+* **TriggerBot**: Threaded, unquantized automated attacking.
+* **Reach**: Extends attack vectors.
+* **Velocity**: Jump-resets and modifies incoming damage vectors.
+* **AutoClicker**: Threaded click simulation with randomized CPS and jitter.
+* **WTap**: Precise sprint-reset combo optimization.
+* **AimAssist**: Smooth, multi-stage easing curve rotation with overshoot recovery.
 
-### 👁 Render (6 modules)
-ESP, Tracers, Nametags, Fullbright, NoHurtCam, ChestESP
+### Movement
+* **Sprint**: Automated sprinting logic.
 
-### 🎮 Player (2 modules)
-AutoArmor, InventoryManager
+### Render
+* **ESP**: Renders bounding boxes around targets via an external, transparent click-through JWindow overlay.
+* **Tracers**: Projects lines to targets.
+* **ArrayList**: Displays active modules.
+* **Fullbright**: Modifies internal gamma settings.
 
-### 🔧 Utility (2 modules)
-FastPlace, Timer
+### Player & Utility
+* **AutoArmor**: Mathematically scores and shift-clicks the highest protection tier armor automatically.
+* **ChestStealer**: Dynamically identifies container sizes to rip items into inventory.
+* **LegitScaffold**: Sneak-places blocks over voids by directly polling the world memory for Air blocks.
+* **Clutch**: Automated block placement to prevent void falls.
+* **Teams & Friends**: Whitelisting systems.
 
 ## Building
 
 ```bash
-# Build everything
-./gradlew build
+# Build the client and launcher
+./gradlew build -x test
 
-# Run the launcher GUI
-./gradlew :launcher:run
+# Compile the executable
+./gradlew :launcher:createExe -x test
 ```
+
+The compiled launcher will be output to `launcher/build/launch4j/OnionMCC.exe`.
 
 ## Usage
 
-1. **Launch Minecraft** (any version 1.8.9+)
-2. **Run the OnionMCC Launcher** (`./gradlew :launcher:run`)
-3. **Click Refresh** to detect Minecraft processes
-4. **Select your MC process** from the dropdown
-5. **Click Inject** — the agent loads into the MC JVM
-6. **Manage modules** via the external GUI — toggle, configure settings
-7. **Save config** to persist your setup
+1. Launch Minecraft (1.8.9, supports Forge/OptiFine).
+2. Run `OnionMCC.exe`.
+3. The launcher will automatically detect the Minecraft process and inject the agent.
+4. Manage modules, configure settings, and bind keys directly from the external UI.
 
 ## Project Structure
 
-```
-OnionMCC/
-├── agent/          # Java Agent (premain/agentmain injection bootstrap)
-├── client/         # Core client library (modules, events, mappings, IPC server)
-├── launcher/       # External JavaFX GUI (injector, IPC client, module management)
-└── mappings/       # Version-specific obfuscation mappings (JSON)
-```
+* `agent/`: Bootstrap loader for JVM injection.
+* `client/`: Core payload containing modules, events, reflection accessors, and the IPC server.
+* `launcher/`: External JavaFX UI, auto-injector, and IPC client.
+* `mappings/`: Version-specific JSON dictionaries for class and field resolution.
 
-## Requirements
-- Java 17+
-- Gradle 8.5+
+## Disclaimer
 
-## License
-MIT — Use responsibly. Only on servers where modifications are allowed.
-
-## ⚠️ Disclaimer
-This client is designed for use on anarchy servers and practice environments where modifications are permitted. The developers are not responsible for any bans or consequences resulting from misuse.
+This software is provided for educational and research purposes. Use responsibly.
