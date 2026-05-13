@@ -1,0 +1,16 @@
+.gradle/
+build/
+bin/
+agent/build/
+agent/bin/
+client/build/
+client/bin/
+launcher/build/
+launcher/bin/
+*.jpg
+*.txt
+*.py
+.vscode/
+.cache/
+*.class
+*.exe
