@@ -78,7 +78,7 @@ public class TriggerBot extends Module {
             if (now - lastTrigger >= nextTriggerDelay) {
                 lastTrigger = now;
                 
-                // Matrix AntiCheat bypass: Prevent StdDev 0.0 using Thread + Gaussian
+                // Advanced AntiCheat bypass: Prevent StdDev 0.0 using Thread + Gaussian
                 double meanDelayMs = generateDelay(); // our base delay config
                 java.util.Random rand = new java.util.Random();
                 double sigma = 0.20 + Math.random() * 0.15;

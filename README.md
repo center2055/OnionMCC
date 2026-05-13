@@ -2,7 +2,7 @@
 
 **Undetectable Injectable Ghost Client for Minecraft 1.8.x**
 
-OnionMCC is a heavily optimized, deeply integrated ghost client designed to bypass modern server-side anticheats (such as Matrix) through raw hardware emulation and asynchronous execution. It operates entirely externally via a JavaFX UI, communicating with the injected payload over a secure TCP IPC bridge.
+OnionMCC is a heavily optimized, deeply integrated ghost client designed to bypass modern server-side anticheats through raw hardware emulation and asynchronous execution. It operates entirely externally via a JavaFX UI, communicating with the injected payload over a secure TCP IPC bridge.
 
 ## Core Architecture
 

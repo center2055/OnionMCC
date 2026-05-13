@@ -142,7 +142,7 @@ public class KillAura extends Module {
         float yawDiff = wrapAngle(targetYaw - currentYaw);
         float pitchDiff = targetPitch - currentPitch;
         
-        // Easing curve (acceleration) instead of instant snapping to fix Vulcan Aim Constant/Linear and Matrix Killaura Aim
+        // Easing curve (acceleration) instead of instant snapping to fix generic Aim Constant/Linear checks
         float absYaw = Math.abs(yawDiff);
         // Ramp up speed based on distance to target angle. Creates a smooth deceleration curve.
         float smoothSpeed = 0.1f + (absYaw / (absYaw + 15.0f)) * 0.5f; 
