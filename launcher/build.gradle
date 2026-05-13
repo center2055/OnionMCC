@@ -19,6 +19,17 @@ dependencies {
     implementation files("${System.getProperty('java.home')}/../lib/tools.jar").filter { it.exists() }
 }
 
+task copyPayloads(type: Copy) {
+    dependsOn ':agent:jar', ':client:jar'
+    from project(':agent').layout.buildDirectory.dir('libs')
+    from project(':client').layout.buildDirectory.dir('libs')
+    include 'onionmcc-agent-*.jar'
+    include 'onionmcc-client-*.jar'
+    into "${projectDir}/src/main/resources/payloads"
+}
+
+processResources.dependsOn copyPayloads
+
 jar {
     manifest {
         attributes(
