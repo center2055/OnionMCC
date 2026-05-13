@@ -409,10 +409,11 @@ public class LauncherApp extends Application {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Button minimizeBtn = createWindowButton("─", TEXT_DIM);
+        Button minimizeBtn = createWindowButton("_");
         minimizeBtn.setOnAction(e -> stage.setIconified(true));
-        Button maxBtn = createWindowButton("□", TEXT_DIM);
-        Button closeBtn = createWindowButton("✕", TEXT_DIM);
+        Button maxBtn = createWindowButton("[ ]");
+        maxBtn.setOnAction(e -> stage.setMaximized(!stage.isMaximized()));
+        Button closeBtn = createWindowButton("X");
         closeBtn.setOnAction(e -> {
             ipcClient.disconnect();
             injector.detach();
@@ -434,7 +435,7 @@ public class LauncherApp extends Application {
         return titleBar;
     }
 
-    private Button createWindowButton(String text, String color) {
+    private Button createWindowButton(String text) {
         Button btn = new Button(text);
         btn.setStyle("""
                     -fx-background-color: transparent;
@@ -473,20 +474,12 @@ public class LauncherApp extends Application {
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
 
-        Button loadBtn = new Button("📂  Load Config");
-        loadBtn.setPrefWidth(158);
-        loadBtn.setAlignment(Pos.CENTER_LEFT);
-        loadBtn.setStyle("-fx-background-color: " + BG_SURFACE + "; -fx-text-fill: " + TEXT_DIM + "; -fx-font-size: 11; -fx-padding: 7 12; -fx-background-radius: 7; -fx-border-color: " + BORDER_SOLID + "; -fx-border-radius: 7; -fx-border-width: 1; -fx-cursor: hand;");
-        loadBtn.setOnMouseEntered(e -> loadBtn.setStyle("-fx-background-color: " + BG_CARD + "; -fx-text-fill: " + TEXT_SECONDARY + "; -fx-font-size: 11; -fx-padding: 7 12; -fx-background-radius: 7; -fx-border-color: " + BORDER_SOLID + "; -fx-border-radius: 7; -fx-border-width: 1; -fx-cursor: hand;"));
-        loadBtn.setOnMouseExited(e -> loadBtn.setStyle("-fx-background-color: " + BG_SURFACE + "; -fx-text-fill: " + TEXT_DIM + "; -fx-font-size: 11; -fx-padding: 7 12; -fx-background-radius: 7; -fx-border-color: " + BORDER_SOLID + "; -fx-border-radius: 7; -fx-border-width: 1; -fx-cursor: hand;"));
+        Button loadBtn = new Button("Load Config");
+        styleConfigButton(loadBtn);
         loadBtn.setOnAction(e -> loadConfigLocally());
 
-        Button saveBtn = new Button("💾  Save Config");
-        saveBtn.setPrefWidth(158);
-        saveBtn.setAlignment(Pos.CENTER_LEFT);
-        saveBtn.setStyle("-fx-background-color: " + BG_SURFACE + "; -fx-text-fill: " + TEXT_DIM + "; -fx-font-size: 11; -fx-padding: 7 12; -fx-background-radius: 7; -fx-border-color: " + BORDER_SOLID + "; -fx-border-radius: 7; -fx-border-width: 1; -fx-cursor: hand;");
-        saveBtn.setOnMouseEntered(e -> saveBtn.setStyle("-fx-background-color: " + BG_CARD + "; -fx-text-fill: " + TEXT_SECONDARY + "; -fx-font-size: 11; -fx-padding: 7 12; -fx-background-radius: 7; -fx-border-color: " + BORDER_SOLID + "; -fx-border-radius: 7; -fx-border-width: 1; -fx-cursor: hand;"));
-        saveBtn.setOnMouseExited(e -> saveBtn.setStyle("-fx-background-color: " + BG_SURFACE + "; -fx-text-fill: " + TEXT_DIM + "; -fx-font-size: 11; -fx-padding: 7 12; -fx-background-radius: 7; -fx-border-color: " + BORDER_SOLID + "; -fx-border-radius: 7; -fx-border-width: 1; -fx-cursor: hand;"));
+        Button saveBtn = new Button("Save Config");
+        styleConfigButton(saveBtn);
         saveBtn.setOnAction(e -> saveConfigLocally());
 
         VBox configBox = new VBox(6);
@@ -495,6 +488,14 @@ public class LauncherApp extends Application {
 
         sidebar.getChildren().addAll(catTitle, categoryButtons, spacer, configBox);
         return sidebar;
+    }
+
+    private void styleConfigButton(Button btn) {
+        btn.setPrefWidth(158);
+        btn.setAlignment(Pos.CENTER_LEFT);
+        btn.setStyle("-fx-background-color: " + BG_SURFACE + "; -fx-text-fill: " + TEXT_DIM + "; -fx-font-size: 11; -fx-padding: 7 12; -fx-background-radius: 7; -fx-border-color: " + BORDER_SOLID + "; -fx-border-radius: 7; -fx-border-width: 1; -fx-cursor: hand;");
+        btn.setOnMouseEntered(e -> btn.setStyle("-fx-background-color: " + BG_CARD + "; -fx-text-fill: " + TEXT_SECONDARY + "; -fx-font-size: 11; -fx-padding: 7 12; -fx-background-radius: 7; -fx-border-color: " + BORDER_SOLID + "; -fx-border-radius: 7; -fx-border-width: 1; -fx-cursor: hand;"));
+        btn.setOnMouseExited(e -> btn.setStyle("-fx-background-color: " + BG_SURFACE + "; -fx-text-fill: " + TEXT_DIM + "; -fx-font-size: 11; -fx-padding: 7 12; -fx-background-radius: 7; -fx-border-color: " + BORDER_SOLID + "; -fx-border-radius: 7; -fx-border-width: 1; -fx-cursor: hand;"));
     }
 
     private Button createCategoryButton(String category) {
