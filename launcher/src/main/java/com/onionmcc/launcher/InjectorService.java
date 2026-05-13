@@ -250,19 +250,29 @@ public class InjectorService {
     }
 
     /**
-     * Find the agent JAR by looking in common locations.
+     * Find the agent JAR by looking in common locations or extracting from embedded resources.
      */
     public Optional<String> findAgentJar() {
-        String baseName = "onionmcc-agent-1.0.0-SNAPSHOT.jar";
+        return findPayloadJar("onionmcc-agent-1.0.0-SNAPSHOT.jar");
+    }
+
+    public Optional<String> findClientJar() {
+        return findPayloadJar("onionmcc-client-1.0.0-SNAPSHOT.jar");
+    }
+
+    private Optional<String> findPayloadJar(String baseName) {
         String[] searchPaths = {
                 "agent/build/libs/" + baseName,
                 "../agent/build/libs/" + baseName,
+                "client/build/libs/" + baseName,
+                "../client/build/libs/" + baseName,
                 "../../agent/build/libs/" + baseName,
                 "../../../agent/build/libs/" + baseName,
                 "../../../../agent/build/libs/" + baseName,
                 baseName,
                 "onionmcc-agent.jar",
-                "build/libs/onionmcc-agent.jar"
+                "onionmcc-client.jar",
+                "build/libs/" + baseName
         };
 
         for (String path : searchPaths) {
@@ -271,26 +281,22 @@ public class InjectorService {
                 return Optional.of(f.getAbsolutePath());
         }
 
-        return Optional.empty();
-    }
-
-    public Optional<String> findClientJar() {
-        String baseName = "onionmcc-client-1.0.0-SNAPSHOT.jar";
-        String[] searchPaths = {
-                "client/build/libs/" + baseName,
-                "../client/build/libs/" + baseName,
-                "../../client/build/libs/" + baseName,
-                "../../../client/build/libs/" + baseName,
-                "../../../../client/build/libs/" + baseName,
-                baseName,
-                "onionmcc-client.jar",
-                "build/libs/onionmcc-client.jar"
-        };
-
-        for (String path : searchPaths) {
-            File f = new File(path);
-            if (f.exists())
-                return Optional.of(f.getAbsolutePath());
+        // Try extracting from embedded resources
+        try {
+            java.io.InputStream in = getClass().getResourceAsStream("/payloads/" + baseName);
+            if (in != null) {
+                File tempJar = new File(System.getProperty("java.io.tmpdir"), "onionmcc_" + System.currentTimeMillis() + "_" + baseName);
+                tempJar.deleteOnExit();
+                Files.copy(in, tempJar.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                in.close();
+                System.out.println("[OnionMCC] Successfully extracted " + baseName + " to " + tempJar.getAbsolutePath());
+                return Optional.of(tempJar.getAbsolutePath());
+            } else {
+                System.err.println("[OnionMCC] Could not find /payloads/" + baseName + " in embedded resources.");
+            }
+        } catch (Exception e) {
+            System.err.println("[OnionMCC] Failed to extract payload: " + e.getMessage());
+            e.printStackTrace();
         }
 
         return Optional.empty();
