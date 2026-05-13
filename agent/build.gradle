@@ -1,0 +1,16 @@
+plugins {
+    id 'java'
+}
+
+jar {
+    manifest {
+        attributes(
+            'Premain-Class': 'com.onionmcc.agent.OnionAgent',
+            'Agent-Class': 'com.onionmcc.agent.OnionAgent',
+            'Can-Redefine-Classes': 'true',
+            'Can-Retransform-Classes': 'true'
+        )
+    }
+
+    archiveBaseName = 'onionmcc-agent'
+}

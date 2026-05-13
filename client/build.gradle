@@ -1,0 +1,11 @@
+plugins {
+    id 'java'
+}
+
+dependencies {
+    // No extra dependencies beyond root-provided ones
+}
+
+jar {
+    archiveBaseName = 'onionmcc-client'
+}

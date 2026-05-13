@@ -1,0 +1,61 @@
+﻿> Task :clean UP-TO-DATE
+> Task :agent:clean
+> Task :client:clean
+> Task :launcher:clean
+> Task :compileJava NO-SOURCE
+> Task :processResources NO-SOURCE
+> Task :classes UP-TO-DATE
+> Task :jar
+> Task :assemble
+> Task :compileTestJava NO-SOURCE
+> Task :processTestResources NO-SOURCE
+> Task :testClasses UP-TO-DATE
+> Task :test NO-SOURCE
+> Task :check UP-TO-DATE
+> Task :build
+> Task :client:compileJava
+> Task :client:processResources
+> Task :client:classes
+> Task :client:jar
+> Task :agent:compileJava
+> Task :agent:processResources NO-SOURCE
+> Task :agent:classes
+> Task :agent:jar
+> Task :agent:assemble
+> Task :agent:compileTestJava NO-SOURCE
+> Task :agent:processTestResources NO-SOURCE
+> Task :agent:testClasses UP-TO-DATE
+> Task :agent:test NO-SOURCE
+> Task :agent:check UP-TO-DATE
+> Task :agent:build
+> Task :client:assemble
+> Task :client:compileTestJava NO-SOURCE
+> Task :client:processTestResources NO-SOURCE
+> Task :client:testClasses UP-TO-DATE
+> Task :client:test NO-SOURCE
+> Task :client:check UP-TO-DATE
+> Task :client:build
+> Task :launcher:compileJava
+> Task :launcher:processResources NO-SOURCE
+> Task :launcher:classes
+> Task :launcher:jar
+> Task :launcher:startScripts
+> Task :launcher:distTar
+> Task :launcher:distZip
+> Task :launcher:assemble
+> Task :launcher:compileTestJava NO-SOURCE
+> Task :launcher:processTestResources NO-SOURCE
+> Task :launcher:testClasses UP-TO-DATE
+> Task :launcher:test NO-SOURCE
+> Task :launcher:check UP-TO-DATE
+> Task :launcher:build
+> Task :launcher:createExe
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.5/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 9s
+16 actionable tasks: 15 executed, 1 up-to-date

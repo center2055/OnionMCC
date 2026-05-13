@@ -1,0 +1,8 @@
+Manifest-Version: 1.0
+Implementation-Title: agent
+Implementation-Version: 1.0.0-SNAPSHOT
+Premain-Class: com.onionmcc.agent.OnionAgent
+Agent-Class: com.onionmcc.agent.OnionAgent
+Can-Redefine-Classes: true
+Can-Retransform-Classes: true
+

@@ -1,0 +1,5 @@
+rootProject.name = 'OnionMCC'
+
+include 'agent'
+include 'client'
+include 'launcher'
