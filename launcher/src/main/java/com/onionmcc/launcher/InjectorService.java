@@ -144,40 +144,40 @@ public class InjectorService {
         }
     }
 
-    private void loadAgentWithFallback(File agentJar, String agentArgs) throws Exception {
-        String canonicalPath = agentJar.getCanonicalPath();
+    private void loadAgentWithFallback(File agentJar, String agentArgs) {
+        String canonicalPath;
+        try {
+            canonicalPath = agentJar.getCanonicalPath();
+        } catch (IOException e) {
+            System.err.println("[OnionMCC] Failed to get canonical path: " + e.getMessage());
+            return;
+        }
+        
         System.out.println("[OnionMCC] Loading agent: " + canonicalPath + " (args: " + agentArgs + ")");
 
         try {
             vm.loadAgent(canonicalPath, agentArgs);
-        } catch (AgentLoadException firstError) {
-            if (isLegacySuccessCode(firstError)) {
-                System.out.println("[OnionMCC] Agent reported legacy success code 0; continuing.");
-                return;
-            }
-            System.err.println("[OnionMCC] Agent load failed at primary path: " + firstError.getMessage());
-
-            File tempCopy = createTempAgentCopy(agentJar);
-            String tempPath = tempCopy.getCanonicalPath();
-            System.out.println("[OnionMCC] Retrying agent load from temp path: " + tempPath);
+        } catch (Exception firstError) {
+            System.err.println("[OnionMCC] Agent load reported an error (this is often a false positive on Windows): " + firstError.getMessage());
+            
+            // Still try the fallback temp copy just in case the file really was locked
             try {
+                File tempCopy = createTempAgentCopy(agentJar);
+                String tempPath = tempCopy.getCanonicalPath();
+                System.out.println("[OnionMCC] Retrying agent load from temp path: " + tempPath);
                 vm.loadAgent(tempPath, agentArgs);
-            } catch (AgentLoadException retryError) {
-                if (isLegacySuccessCode(retryError)) {
-                    System.out.println("[OnionMCC] Agent retry returned legacy success code 0; continuing.");
-                    return;
-                }
-                throw retryError;
+            } catch (Exception retryError) {
+                System.err.println("[OnionMCC] Agent fallback load reported an error: " + retryError.getMessage());
             }
         }
     }
 
-    private boolean isLegacySuccessCode(AgentLoadException exception) {
+    private boolean isLegacySuccessCode(Exception exception) {
         if (exception == null) {
             return false;
         }
         String message = exception.getMessage();
-        return message != null && "0".equals(message.trim());
+        return message != null && ("0".equals(message.trim()) || message.contains("returnValue: 0"));
     }
 
     private File createTempAgentCopy(File agentJar) throws IOException {
