@@ -233,7 +233,8 @@ public final class OverlayRenderer {
                 int w = (int) Math.round(box.width);
                 int h = (int) Math.round(box.height);
 
-                g.setColor(new Color(box.color.getRed(), box.color.getGreen(), box.color.getBlue(), 40));
+                int fillAlpha = Math.max(18, Math.min(80, box.color.getAlpha() / 3));
+                g.setColor(new Color(box.color.getRed(), box.color.getGreen(), box.color.getBlue(), fillAlpha));
                 g.fillRect(x, y, w, h);
 
                 g.setColor(box.color);
