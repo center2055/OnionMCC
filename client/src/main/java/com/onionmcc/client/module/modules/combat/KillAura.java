@@ -102,34 +102,41 @@ public class KillAura extends Module {
                 lastAttack = now;
                 
                 double targetAps = aps.getValue();
-                double meanDelayMs = 1000.0 / targetAps;
+                double meanTicks = 20.0 / targetAps;
+                int baseTicks = (int) Math.floor(meanTicks);
+                if (Math.random() < (meanTicks - baseTicks)) {
+                    baseTicks++;
+                }
+                // Add occasional heavy jitter
+                if (Math.random() < 0.15) {
+                    baseTicks += (Math.random() > 0.5 ? 1 : -1);
+                }
+                baseTicks = Math.max(1, baseTicks);
+                nextAttackDelay = baseTicks * 50L;
                 
-                // Pure Gaussian delay for the threaded clicker
-                java.util.Random rand = new java.util.Random();
-                double sigma = 0.20 + Math.random() * 0.15;
-                double delayMs = meanDelayMs * Math.exp(sigma * rand.nextGaussian());
-                
-                nextAttackDelay = Math.max(10L, Math.round(delayMs));
-                
-                // Bypass 50ms tick quantization by firing the click asynchronously
-                // We use Thread.sleep to exactly nail the fractional millisecond timing before jumping back to main thread
-                long sleepTime = Math.max(1L, nextAttackDelay - (System.currentTimeMillis() - now));
-                new Thread(() -> {
+                mc.runOnMainThread(() -> {
                     try {
-                        Thread.sleep(sleepTime);
                         mc.simulateClick(true);
                     } catch (Exception ignored) {}
-                }).start();
+                });
             }
         } catch (Exception ignored) {
         }
     }
     
+    private int trackingTicks = 0;
+    private int overshootRecoveryTicks = 0;
+    private long lastAttackMs = 0L;
+    private float postAttackYawOffset = 0f;
+    private float postAttackPitchOffset = 0f;
+
     private void faceEntity(MinecraftAccessor mc, Object player, Object target) {
+        trackingTicks++;
+        double currentYOffset = 1.2 + Math.random() * 0.4;
+        double targetY = mc.getEntityPosY(target) + currentYOffset;
+
         double diffX = mc.getEntityPosX(target) - mc.getEntityPosX(player);
-        // Add random offsets to avoid aiming perfectly center (Aim Constant bypass)
-        double randomOffsetY = (Math.random() - 0.5) * 0.4;
-        double diffY = (mc.getEntityPosY(target) + 1.0 + randomOffsetY) - (mc.getEntityPosY(player) + 1.62);
+        double diffY = targetY - (mc.getEntityPosY(player) + 1.62);
         double diffZ = mc.getEntityPosZ(target) - mc.getEntityPosZ(player);
         double dist = Math.sqrt(diffX * diffX + diffZ * diffZ);
         
@@ -142,16 +149,85 @@ public class KillAura extends Module {
         float yawDiff = wrapAngle(targetYaw - currentYaw);
         float pitchDiff = targetPitch - currentPitch;
         
-        // Easing curve (acceleration) instead of instant snapping to fix generic Aim Constant/Linear checks
+        if (mc.getLeftClickCounter() == 0 && mc.isMouseButtonDown(0)) {
+             lastAttackMs = System.currentTimeMillis();
+             postAttackYawOffset = (float) ((Math.random() - 0.5) * 2.0);
+             postAttackPitchOffset = (float) ((Math.random() - 0.5) * 1.0);
+        }
+
         float absYaw = Math.abs(yawDiff);
-        // Ramp up speed based on distance to target angle. Creates a smooth deceleration curve.
-        float smoothSpeed = 0.1f + (absYaw / (absYaw + 15.0f)) * 0.5f; 
+        float absPitch = Math.abs(pitchDiff);
+        float distAng = (float) Math.sqrt(absYaw * absYaw + absPitch * absPitch);
+
+        float yawSpeed = 0.6f;
+        float pitchSpeed = 0.6f;
+
+        float gainHiYaw   = 0.014F + yawSpeed   * 0.125F;
+        float gainLoYaw   = 0.005F + yawSpeed   * 0.038F;
+        float gainHiPitch = 0.014F + pitchSpeed * 0.125F;
+        float gainLoPitch = 0.005F + pitchSpeed * 0.038F;
         
+        float pivot = 11.0F;
+        float yawBlend   = absYaw   / (absYaw   + pivot);
+        float pitchBlend = absPitch / (absPitch + pivot);
+        float yawGain   = gainLoYaw   + (gainHiYaw   - gainLoYaw)   * yawBlend;
+        float pitchGain = gainLoPitch + (gainHiPitch - gainLoPitch) * pitchBlend;
+
+        float rampMultiplier = 1.0F;
+        if (trackingTicks == 1) rampMultiplier = 0.30F + (float)Math.random() * 0.12F;
+        else if (trackingTicks == 2) rampMultiplier = 0.55F + (float)Math.random() * 0.12F;
+        else if (trackingTicks == 3) rampMultiplier = 0.78F + (float)Math.random() * 0.10F;
+        else if (trackingTicks == 4) rampMultiplier = 0.92F + (float)Math.random() * 0.06F;
+        
+        yawGain   *= rampMultiplier;
+        pitchGain *= rampMultiplier;
+
+        float settle = Math.max(0.0F, Math.min(1.0F, (distAng - 1.0F) / 4.0F));
+
+        if (overshootRecoveryTicks > 0) {
+            overshootRecoveryTicks--;
+            yawGain *= 0.55F;
+            pitchGain *= 0.55F;
+        }
+
+        float yawStep = yawDiff * yawGain;
+        float pitchStep = pitchDiff * pitchGain;
+
+        float maxStep = 6.0F + yawSpeed * 32.0F;
+        if (yawStep > maxStep)  yawStep = maxStep;
+        if (yawStep < -maxStep) yawStep = -maxStep;
+        float maxStepP = 4.0F + pitchSpeed * 22.0F;
+        if (pitchStep > maxStepP)  pitchStep = maxStepP;
+        if (pitchStep < -maxStepP) pitchStep = -maxStepP;
+
+        float randAmount = 2.0F;
+        if (randAmount > 0 && settle > 0F) {
+            float yawNoise = ((float)Math.random() - 0.5F) * randAmount * 0.04F * settle;
+            float pitchNoise = ((float)Math.random() - 0.5F) * randAmount * 0.03F * settle;
+            yawStep += yawNoise;
+            pitchStep += pitchNoise;
+        }
+
+        if (settle > 0F) {
+            float wobble = 1.0F - 0.04F * settle + 0.08F * settle * (float)Math.random();
+            yawStep *= wobble;
+            pitchStep *= wobble;
+        }
+
+        long nowMs = System.currentTimeMillis();
+        long sinceAttack = nowMs - lastAttackMs;
+        if (lastAttackMs > 0L && sinceAttack >= 0L && sinceAttack < 280L) {
+            float decay = 1.0F - (sinceAttack / 280.0F);
+            float driftEase = decay * decay;
+            yawStep   += postAttackYawOffset   * driftEase * 0.06F;
+            pitchStep += postAttackPitchOffset * driftEase * 0.06F;
+        }
+
         float f = mc.getMouseSensitivity() * 0.6f + 0.2f;
         float f1 = f * f * f * 8.0f;
         
-        int mouseDeltaX = (int) Math.round((yawDiff * smoothSpeed) / (float)((double)f1 * 0.15D));
-        int mouseDeltaY = (int) Math.round((pitchDiff * smoothSpeed) / (float)((double)f1 * 0.15D));
+        int mouseDeltaX = (int) Math.round(yawStep / (float)((double)f1 * 0.15D));
+        int mouseDeltaY = (int) Math.round(pitchStep / (float)((double)f1 * 0.15D));
         
         float finalYaw = currentYaw + (float)((double)((float)mouseDeltaX * f1) * 0.15D);
         float finalPitch = currentPitch + (float)((double)((float)mouseDeltaY * f1) * 0.15D);

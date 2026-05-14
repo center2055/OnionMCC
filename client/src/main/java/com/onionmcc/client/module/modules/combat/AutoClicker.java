@@ -50,17 +50,24 @@ public class AutoClicker extends Module {
                             double max = maxCps.getValue();
                             double currentCps = min + Math.random() * (max - min);
                             
-                            double meanDelayMs = 1000.0 / currentCps;
-                            double sigma = 0.20 + Math.random() * 0.15;
-                            double delayMs = meanDelayMs * Math.exp(sigma * rand.nextGaussian());
-                            
-                            long sleepTime = Math.max(10L, Math.round(delayMs));
+                            double meanTicks = 20.0 / currentCps;
+                            int baseTicks = (int) Math.floor(meanTicks);
+                            if (Math.random() < (meanTicks - baseTicks)) {
+                                baseTicks++;
+                            }
+                            if (Math.random() < 0.15) {
+                                baseTicks += (Math.random() > 0.5 ? 1 : -1);
+                            }
+                            baseTicks = Math.max(1, baseTicks);
+                            long sleepTime = baseTicks * 50L;
 
                             final boolean doLeft = isLeftDown && !cancelLeftClick;
                             
-                            if (doLeft) mc.setLeftClickCounter(0);
-                            mc.simulateClick(doLeft);
-                            applyJitter(mc);
+                            mc.runOnMainThread(() -> {
+                                if (doLeft) mc.setLeftClickCounter(0);
+                                mc.simulateClick(doLeft);
+                                applyJitter(mc);
+                            });
                             
                             Thread.sleep(sleepTime);
                             continue;

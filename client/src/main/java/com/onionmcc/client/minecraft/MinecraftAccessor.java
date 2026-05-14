@@ -104,11 +104,38 @@ public class MinecraftAccessor {
     }
 
     public Object getPlayer() {
-        return getField(getMinecraft(), mcMapping, "thePlayer");
+        Object val = getField(getMinecraft(), mcMapping, "thePlayer");
+        if (val != null) return val;
+        
+        try {
+            Class<?> playerClass = entityPlayerMapping != null ? entityPlayerMapping.resolveClass() : null;
+            if (playerClass != null) {
+                for (Field f : getMinecraft().getClass().getDeclaredFields()) {
+                    if (playerClass.isAssignableFrom(f.getType())) {
+                        f.setAccessible(true);
+                        return f.get(getMinecraft());
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
     public Object getWorld() {
-        return getField(getMinecraft(), mcMapping, "theWorld");
+        Object val = getField(getMinecraft(), mcMapping, "theWorld");
+        if (val != null) return val;
+        
+        try {
+            // Find field ending with WorldClient or World
+            for (Field f : getMinecraft().getClass().getDeclaredFields()) {
+                String typeName = f.getType().getSimpleName().toLowerCase();
+                if (typeName.contains("world") && !typeName.contains("renderer") && !typeName.contains("provider")) {
+                    f.setAccessible(true);
+                    return f.get(getMinecraft());
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
     public Object getPlayerController() {
@@ -803,15 +830,10 @@ public class MinecraftAccessor {
 
     public boolean isMouseButtonDown(int button) {
         try {
-            if (mouseIsButtonDownMethod == null) {
-                Class<?> mouseClass = findSystemClass("org.lwjgl.input.Mouse");
-                if (mouseClass == null)
-                    return false;
-                mouseIsButtonDownMethod = mouseClass.getMethod("isButtonDown", int.class);
-            }
-            Object result = mouseIsButtonDownMethod.invoke(null, button);
-            return result instanceof Boolean && (Boolean) result;
-        } catch (Exception ignored) {
+            int vkCode = (button == 0) ? 0x01 : (button == 1 ? 0x02 : 0x04);
+            short state = com.sun.jna.platform.win32.User32.INSTANCE.GetAsyncKeyState(vkCode);
+            return (state & 0x8000) != 0;
+        } catch (Throwable ignored) {
             return false;
         }
     }

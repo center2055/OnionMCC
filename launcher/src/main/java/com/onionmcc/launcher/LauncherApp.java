@@ -195,7 +195,7 @@ public class LauncherApp extends Application {
                         });
                     }).start();
                 } else {
-                    log("\u2717 Injection failed.");
+                    log("\u2717 Injection failed: " + injector.getLastError());
                     showAgentLogTail();
                 }
             });
@@ -1171,7 +1171,7 @@ public class LauncherApp extends Application {
         addDefaultModule("AutoClicker", "COMBAT", "Automatically clicks at randomized CPS");
         addDefaultModule("WTap", "COMBAT", "Re-sprints after attacks for combos");
         addDefaultModule("AimAssist", "COMBAT", "Smoothly aims toward nearest target");
-        addDefaultModule("SilentKiller", "COMBAT", "Attacks entities silently without aiming");
+        addDefaultModule("SilentAura", "COMBAT", "Attacks entities silently without aiming");
         addDefaultModule("SilentAim", "COMBAT", "Hits targets outside crosshair silently");
 
         addDefaultModule("Sprint", "MOVEMENT", "Automatically sprints while moving");
@@ -1322,7 +1322,15 @@ public class LauncherApp extends Application {
 
     // -- Main -----------------------------------------------------------
 
+    private static java.net.ServerSocket lockSocket;
+
     public static void main(String[] args) {
+        try {
+            lockSocket = new java.net.ServerSocket(47890);
+        } catch (Exception e) {
+            javax.swing.JOptionPane.showMessageDialog(null, "OnionMCC Launcher is already running!", "Error", javax.swing.JOptionPane.ERROR_MESSAGE);
+            System.exit(1);
+        }
         launch(args);
     }
 }

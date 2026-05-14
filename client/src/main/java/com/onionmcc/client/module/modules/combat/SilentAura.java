@@ -7,13 +7,14 @@ import com.onionmcc.client.module.ModuleCategory;
 import com.onionmcc.client.module.Setting;
 import java.util.List;
 
-public class SilentKiller extends Module {
+public class SilentAura extends Module {
     private final Setting<Double> range = addSetting(Setting.ofNumber("Range", "Attack range", 4.0, 1.0, 6.0, 0.1));
     private final Setting<Double> aps = addSetting(Setting.ofNumber("APS", "Attacks per second", 12.0, 1.0, 20.0, 0.5));
     private long lastAttack = 0L;
+    private long nextAttackDelay = 100L;
 
-    public SilentKiller() {
-        super("SilentKiller", "Attacks entities without aiming", ModuleCategory.COMBAT, 0);
+    public SilentAura() {
+        super("SilentAura", "Attacks entities without aiming", ModuleCategory.COMBAT, 0);
     }
     
     @Override
@@ -63,20 +64,26 @@ public class SilentKiller extends Module {
                 lastAttack = now;
                 final Object target = bestTarget;
                 
+                // Pure tick-based randomization to bypass Matrix stdDev 0.0
                 double targetAps = aps.getValue();
-                double meanDelayMs = 1000.0 / targetAps;
-                java.util.Random rand = new java.util.Random();
-                double sigma = 0.20 + Math.random() * 0.15;
-                double delayMs = meanDelayMs * Math.exp(sigma * rand.nextGaussian());
-                long sleepTime = Math.max(1L, Math.round(delayMs));
+                double meanTicks = 20.0 / targetAps;
+                int baseTicks = (int) Math.floor(meanTicks);
+                if (Math.random() < (meanTicks - baseTicks)) {
+                    baseTicks++;
+                }
+                // Add occasional heavy jitter
+                if (Math.random() < 0.15) {
+                    baseTicks += (Math.random() > 0.5 ? 1 : -1);
+                }
+                baseTicks = Math.max(1, baseTicks);
+                nextAttackDelay = baseTicks * 50L;
 
-                new Thread(() -> {
+                mc.runOnMainThread(() -> {
                     try {
-                        Thread.sleep(sleepTime);
                         mc.swingItem(player);
                         mc.attackEntity(target);
                     } catch (Exception ignored) {}
-                }).start();
+                });
             }
         } catch (Exception ignored) {}
     }

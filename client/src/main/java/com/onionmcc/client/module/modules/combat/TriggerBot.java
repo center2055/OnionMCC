@@ -78,22 +78,23 @@ public class TriggerBot extends Module {
             if (now - lastTrigger >= nextTriggerDelay) {
                 lastTrigger = now;
                 
-                // Advanced AntiCheat bypass: Prevent StdDev 0.0 using Thread + Gaussian
-                double meanDelayMs = generateDelay(); // our base delay config
-                java.util.Random rand = new java.util.Random();
-                double sigma = 0.20 + Math.random() * 0.15;
-                double delayMs = meanDelayMs * Math.exp(sigma * rand.nextGaussian());
-                
-                nextTriggerDelay = Math.max(10L, Math.round(delayMs));
-                long sleepTime = nextTriggerDelay;
+                double meanTicks = generateDelay() / 50.0;
+                int baseTicks = (int) Math.floor(meanTicks);
+                if (Math.random() < (meanTicks - baseTicks)) {
+                    baseTicks++;
+                }
+                if (Math.random() < 0.15) {
+                    baseTicks += (Math.random() > 0.5 ? 1 : -1);
+                }
+                baseTicks = Math.max(1, baseTicks);
+                nextTriggerDelay = baseTicks * 50L;
 
-                new Thread(() -> {
+                mc.runOnMainThread(() -> {
                     try {
-                        Thread.sleep(sleepTime);
                         mc.setLeftClickCounter(0);
                         mc.simulateClick(true);
                     } catch (Exception ignored) {}
-                }).start();
+                });
             }
         } catch (Exception ignored) {}
     }

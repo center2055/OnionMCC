@@ -15,8 +15,8 @@ public class AimAssist extends Module {
             Setting.ofNumber("FOV", "Max FOV to assist", 60.0, 5.0, 180.0, 5.0));
     private final Setting<Double> range = addSetting(
             Setting.ofNumber("Range", "Max range", 5.0, 1.0, 12.0, 0.5));
-    private final Setting<Boolean> attackingOnly = addSetting(
-            Setting.ofBoolean("AttackingOnly", "Only assist when holding attack", true));
+    private final Setting<Boolean> clickOnly = addSetting(
+            Setting.ofBoolean("ClickOnly", "Only assist when holding attack", true));
 
     private float lastClientYaw = 0f;
     private float lastClientPitch = 0f;
@@ -42,6 +42,7 @@ public class AimAssist extends Module {
     private float postAttackYawOffset = 0f;
     private float postAttackPitchOffset = 0f;
     private Object currentTarget = null;
+    private double currentYOffset = 1.3;
 
     @Override
     public void onTick() {
@@ -51,7 +52,7 @@ public class AimAssist extends Module {
             return;
         }
 
-        if (attackingOnly.getValue() && !mc.isMouseButtonDown(0)) {
+        if (clickOnly.getValue() && !mc.isMouseButtonDown(0)) {
             hasLastRotation = false;
             trackingTicks = 0;
             return;
@@ -71,10 +72,15 @@ public class AimAssist extends Module {
         if (target != currentTarget) {
             trackingTicks = 0;
             currentTarget = target;
+            currentYOffset = 1.2 + Math.random() * 0.4; // Randomize between 1.2 and 1.6 (chest/head)
+        } else {
+            // Slowly drift the offset while tracking
+            currentYOffset += (Math.random() - 0.5) * 0.05;
+            currentYOffset = Math.max(1.1, Math.min(1.7, currentYOffset));
         }
         trackingTicks++;
 
-        double targetY = mc.getEntityPosY(target) + 0.9;
+        double targetY = mc.getEntityPosY(target) + currentYOffset;
         
         double diffX = mc.getEntityPosX(target) - mc.getEntityPosX(player);
         double diffY = targetY - (mc.getEntityPosY(player) + 1.62);

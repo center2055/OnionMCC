@@ -144,24 +144,9 @@ public final class OverlayRenderer {
     }
 
     private void applyClickThrough() {
-        if (window == null) {
-            return;
-        }
-        try {
-            Pointer pointer = Native.getComponentPointer(window);
-            if (pointer == null) {
-                return;
-            }
-            HWND hwnd = new HWND(pointer);
-            int style = User32.INSTANCE.GetWindowLong(hwnd, WinUser.GWL_EXSTYLE);
-            style |= WinUser.WS_EX_LAYERED;
-            style |= WinUser.WS_EX_TRANSPARENT;
-            style |= WS_EX_TOOLWINDOW;
-            User32.INSTANCE.SetWindowLong(hwnd, WinUser.GWL_EXSTYLE, style);
-            // DO NOT call SetLayeredWindowAttributes here, it ruins Java's per-pixel alpha channel.
-            // AWT handles the WS_EX_LAYERED alpha internally.
-        } catch (Throwable ignored) {
-        }
+        // Disabled native JNA hacks. Java 17 automatically handles per-pixel alpha transparency
+        // and routes clicks through transparent pixels. Forcing WS_EX_TRANSPARENT via JNA 
+        // causes DWM to discard the entire window buffer on some Windows 11 builds.
     }
 
     private final class OverlayPanel extends JComponent {

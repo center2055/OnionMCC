@@ -32,7 +32,7 @@ public class ModuleManager {
         register(new Velocity());
         register(new WTap());
         register(new AimAssist());
-        register(new com.onionmcc.client.module.modules.combat.SilentKiller());
+        register(new com.onionmcc.client.module.modules.combat.SilentAura());
         register(new com.onionmcc.client.module.modules.combat.SilentAim());
 
         // ── Movement ────────────────────────────────
