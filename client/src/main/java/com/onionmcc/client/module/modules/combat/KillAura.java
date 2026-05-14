@@ -17,6 +17,10 @@ public class KillAura extends Module {
             Setting.ofMode("Targeting", "Targeting style", "Switch", "Single", "Switch", "Multi"));
     private final Setting<Boolean> autoWeapon = addSetting(
             Setting.ofBoolean("AutoWeapon", "Automatically swap to best weapon", true));
+    private final Setting<Boolean> targetPlayers = addSetting(
+            Setting.ofBoolean("Players", "Target players", true));
+    private final Setting<Boolean> targetMobs = addSetting(
+            Setting.ofBoolean("Mobs", "Target mobs and animals", false));
     private final Setting<Boolean> cooldown = addSetting(
             Setting.ofBoolean("Cooldown", "Wait for 1.9+ attack cooldown", true));
 
@@ -56,8 +60,12 @@ public class KillAura extends Module {
             for (Object entity : candidates) {
                 if (entity == null || entity == player || mc.isEntityDead(entity) || mc.isInvisible(entity)) continue;
                 
-                // For KillAura, restrict to living entities to avoid hitting armor stands/items
-                if (!mc.isLivingEntity(entity)) continue;
+                boolean isPlayer = mc.isPlayerEntity(entity);
+                boolean isMob = mc.isLivingEntity(entity) && !isPlayer;
+                
+                if (!((targetPlayers.getValue() && isPlayer) || (targetMobs.getValue() && isMob))) {
+                    continue;
+                }
 
                 // Ensure it's a living entity (has health) and is not us
                 float health = mc.getEntityHealth(entity);
