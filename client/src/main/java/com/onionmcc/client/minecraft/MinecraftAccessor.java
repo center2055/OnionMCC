@@ -5,6 +5,8 @@ import com.onionmcc.client.mapping.ClassMapping;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -28,6 +30,10 @@ public class MinecraftAccessor {
     private Method mouseIsButtonDownMethod;
     private final java.util.Set<String> loggedFieldErrors = new java.util.HashSet<>();
     private Robot robot;
+    private Class<?> activeRenderInfoClass;
+    private Field activeRenderInfoModelViewField;
+    private Field activeRenderInfoProjectionField;
+    private Field activeRenderInfoViewportField;
 
     public void init() {
         try {
@@ -226,6 +232,21 @@ public class MinecraftAccessor {
     public double getEntityPosZ(Object entity) {
         Object val = getField(entity, entityMapping, "posZ");
         return val instanceof Number ? ((Number) val).doubleValue() : 0;
+    }
+
+    public double getEntityLastTickPosX(Object entity) {
+        Object val = getField(entity, entityMapping, "lastTickPosX");
+        return val instanceof Number ? ((Number) val).doubleValue() : getEntityPosX(entity);
+    }
+
+    public double getEntityLastTickPosY(Object entity) {
+        Object val = getField(entity, entityMapping, "lastTickPosY");
+        return val instanceof Number ? ((Number) val).doubleValue() : getEntityPosY(entity);
+    }
+
+    public double getEntityLastTickPosZ(Object entity) {
+        Object val = getField(entity, entityMapping, "lastTickPosZ");
+        return val instanceof Number ? ((Number) val).doubleValue() : getEntityPosZ(entity);
     }
 
     public void setEntityMotionX(Object entity, double value) {
@@ -636,6 +657,56 @@ public class MinecraftAccessor {
         }
     }
 
+    public float getPartialTicks() {
+        Object mc = getMinecraft();
+        if (mc == null) {
+            return 1.0f;
+        }
+        Object timer = getField(mc, mcMapping, "timer");
+        if (timer == null) {
+            return 1.0f;
+        }
+        ClassMapping timerMapping = OnionMCC.getInstance().getMappingManager().getMapping("net.minecraft.util.Timer");
+        if (timerMapping == null) {
+            return 1.0f;
+        }
+        Object value = getField(timer, timerMapping, "renderPartialTicks");
+        return value instanceof Number ? ((Number) value).floatValue() : 1.0f;
+    }
+
+    public boolean getActiveRenderInfo(double[] modelView, double[] projection, int[] viewport) {
+        try {
+            if (modelView == null || modelView.length < 16 || projection == null || projection.length < 16
+                    || viewport == null || viewport.length < 4) {
+                return false;
+            }
+
+            ensureActiveRenderInfo();
+            if (activeRenderInfoClass == null || activeRenderInfoModelViewField == null
+                    || activeRenderInfoProjectionField == null || activeRenderInfoViewportField == null) {
+                return false;
+            }
+
+            FloatBuffer modelBuffer = (FloatBuffer) activeRenderInfoModelViewField.get(null);
+            FloatBuffer projectionBuffer = (FloatBuffer) activeRenderInfoProjectionField.get(null);
+            IntBuffer viewportBuffer = (IntBuffer) activeRenderInfoViewportField.get(null);
+            if (modelBuffer == null || projectionBuffer == null || viewportBuffer == null) {
+                return false;
+            }
+
+            for (int i = 0; i < 16; i++) {
+                modelView[i] = modelBuffer.get(i);
+                projection[i] = projectionBuffer.get(i);
+            }
+            for (int i = 0; i < 4; i++) {
+                viewport[i] = viewportBuffer.get(i);
+            }
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     public String getEntityName(Object entity) {
         if (entity == null || entityMapping == null) {
             return "";
@@ -1041,25 +1112,37 @@ public class MinecraftAccessor {
         Object world = getWorld();
         if (world == null)
             return Collections.emptyList();
+        Object selfPlayer = getPlayer();
 
         try {
-            // Try playerEntities field (1.8.x)
-            for (Field f : world.getClass().getDeclaredFields()) {
-                if (List.class.isAssignableFrom(f.getType())) {
+            // Try playerEntities-style fields across the full class hierarchy.
+            for (Class<?> current = world.getClass(); current != null; current = current.getSuperclass()) {
+                for (Field f : current.getDeclaredFields()) {
+                    if (!List.class.isAssignableFrom(f.getType())) {
+                        continue;
+                    }
                     f.setAccessible(true);
                     List<Object> list = (List<Object>) f.get(world);
-                    if (list != null && !list.isEmpty()) {
-                        // Check if first element is a player entity
-                        Object first = list.get(0);
-                        if (entityPlayerMapping != null) {
-                            try {
-                                Class<?> playerClass = entityPlayerMapping.resolveClass();
-                                if (playerClass.isInstance(first)) {
-                                    return list;
-                                }
-                            } catch (Exception ignored) {
-                            }
-                        }
+                    if (list == null || list.isEmpty()) {
+                        continue;
+                    }
+
+                    Object first = firstNonNull(list);
+                    if (first == null) {
+                        continue;
+                    }
+
+                    String fieldName = f.getName().toLowerCase();
+                    if (fieldName.contains("player") || fieldName.contains("field_73010_i")) {
+                        return list;
+                    }
+
+                    if (selfPlayer != null && selfPlayer.getClass().isInstance(first)) {
+                        return list;
+                    }
+
+                    if (looksLikePlayerEntity(first)) {
+                        return list;
                     }
                 }
             }
@@ -1161,13 +1244,38 @@ public class MinecraftAccessor {
     }
 
     public boolean isPlayerEntity(Object entity) {
-        if (entity == null || entityPlayerMapping == null)
+        if (entity == null)
             return false;
+
+        Object selfPlayer = getPlayer();
+        if (selfPlayer != null && selfPlayer.getClass().isInstance(entity)) {
+            return true;
+        }
+
+        if (entityPlayerMapping == null)
+            return looksLikePlayerEntity(entity);
         try {
             return entityPlayerMapping.resolveClass().isInstance(entity);
         } catch (Exception ignored) {
+            return looksLikePlayerEntity(entity);
+        }
+    }
+
+    private boolean looksLikePlayerEntity(Object entity) {
+        if (entity == null) {
             return false;
         }
+
+        Class<?> current = entity.getClass();
+        while (current != null) {
+            String name = current.getName().toLowerCase();
+            String simple = current.getSimpleName().toLowerCase();
+            if (name.contains("entityplayer") || simple.contains("player")) {
+                return true;
+            }
+            current = current.getSuperclass();
+        }
+        return false;
     }
 
     private void invokeMinecraftMethod(String mappedName, String fallbackName) {
@@ -1218,6 +1326,145 @@ public class MinecraftAccessor {
             }
         }
         return null;
+    }
+
+    private void ensureActiveRenderInfo() {
+        if (activeRenderInfoClass != null && activeRenderInfoModelViewField != null
+                && activeRenderInfoProjectionField != null && activeRenderInfoViewportField != null) {
+            return;
+        }
+        try {
+            activeRenderInfoClass = resolveActiveRenderInfoClass();
+            if (activeRenderInfoClass == null) {
+                return;
+            }
+
+            // 1.8.9 notch names: auz.a = VIEWPORT, auz.b = MODELVIEW, auz.c = PROJECTION.
+            activeRenderInfoModelViewField = findFirstField(activeRenderInfoClass, FloatBuffer.class,
+                    "MODELVIEW", "field_178812_b", "b");
+            activeRenderInfoProjectionField = findFirstField(activeRenderInfoClass, FloatBuffer.class,
+                    "PROJECTION", "field_178813_c", "c");
+            activeRenderInfoViewportField = findFirstField(activeRenderInfoClass, IntBuffer.class,
+                    "VIEWPORT", "field_178814_a", "a");
+
+            if (activeRenderInfoModelViewField == null || activeRenderInfoProjectionField == null
+                    || activeRenderInfoViewportField == null) {
+                resolveActiveRenderInfoByShape(activeRenderInfoClass);
+            }
+
+            if (activeRenderInfoModelViewField == null || activeRenderInfoProjectionField == null
+                    || activeRenderInfoViewportField == null) {
+                activeRenderInfoClass = null;
+                return;
+            }
+
+            OnionMCC.getInstance().logToFile("ActiveRenderInfo resolved: " + activeRenderInfoClass.getName());
+        } catch (Throwable ignored) {
+            activeRenderInfoClass = null;
+            activeRenderInfoModelViewField = null;
+            activeRenderInfoProjectionField = null;
+            activeRenderInfoViewportField = null;
+        }
+    }
+
+    private Class<?> resolveActiveRenderInfoClass() {
+        for (String name : new String[] { "net.minecraft.client.renderer.ActiveRenderInfo", "auz" }) {
+            Class<?> clazz = findSystemClass(name);
+            if (clazz != null) {
+                return clazz;
+            }
+        }
+
+        java.lang.instrument.Instrumentation inst = OnionMCC.getInstance().getInstrumentation();
+        if (inst == null) {
+            return null;
+        }
+
+        for (Class<?> c : inst.getAllLoadedClasses()) {
+            if ("ActiveRenderInfo".equals(c.getSimpleName())) {
+                return c;
+            }
+        }
+        for (Class<?> c : inst.getAllLoadedClasses()) {
+            if (looksLikeActiveRenderInfo(c)) {
+                return c;
+            }
+        }
+        return null;
+    }
+
+    private boolean looksLikeActiveRenderInfo(Class<?> clazz) {
+        int floatBuffers = 0;
+        int intBuffers = 0;
+        for (Class<?> current = clazz; current != null; current = current.getSuperclass()) {
+            for (Field field : current.getDeclaredFields()) {
+                int modifiers = field.getModifiers();
+                if (!java.lang.reflect.Modifier.isStatic(modifiers)) {
+                    continue;
+                }
+                if (field.getType() == FloatBuffer.class) {
+                    floatBuffers++;
+                } else if (field.getType() == IntBuffer.class) {
+                    intBuffers++;
+                }
+            }
+        }
+        return floatBuffers >= 2 && intBuffers >= 1;
+    }
+
+    private Field findFirstField(Class<?> clazz, Class<?> fieldType, String... fieldNames) {
+        for (String fieldName : fieldNames) {
+            try {
+                Field field = findFieldRecursive(clazz, fieldName);
+                if (fieldType.isAssignableFrom(field.getType())) {
+                    return field;
+                }
+            } catch (NoSuchFieldException ignored) {
+            }
+        }
+        return null;
+    }
+
+    private void resolveActiveRenderInfoByShape(Class<?> clazz) {
+        List<Field> floatBuffers = new ArrayList<>();
+        List<Field> intBuffers = new ArrayList<>();
+        for (Class<?> current = clazz; current != null; current = current.getSuperclass()) {
+            for (Field field : current.getDeclaredFields()) {
+                int modifiers = field.getModifiers();
+                if (!java.lang.reflect.Modifier.isStatic(modifiers)) {
+                    continue;
+                }
+                if (field.getType() == FloatBuffer.class) {
+                    field.setAccessible(true);
+                    floatBuffers.add(field);
+                } else if (field.getType() == IntBuffer.class) {
+                    field.setAccessible(true);
+                    intBuffers.add(field);
+                }
+            }
+        }
+
+        if (activeRenderInfoModelViewField == null && floatBuffers.size() >= 1) {
+            activeRenderInfoModelViewField = floatBuffers.get(0);
+        }
+        if (activeRenderInfoProjectionField == null && floatBuffers.size() >= 2) {
+            activeRenderInfoProjectionField = floatBuffers.get(1);
+        }
+        if (activeRenderInfoViewportField == null && !intBuffers.isEmpty()) {
+            activeRenderInfoViewportField = intBuffers.get(0);
+        }
+    }
+
+    private Field findFieldRecursive(Class<?> clazz, String fieldName) throws NoSuchFieldException {
+        for (Class<?> current = clazz; current != null; current = current.getSuperclass()) {
+            try {
+                Field field = current.getDeclaredField(fieldName);
+                field.setAccessible(true);
+                return field;
+            } catch (NoSuchFieldException ignored) {
+            }
+        }
+        throw new NoSuchFieldException(fieldName + " in " + clazz.getName());
     }
 
     private Object firstNonNull(List<Object> list) {

@@ -18,6 +18,7 @@ import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import com.onionmcc.client.OnionMCC;
 
 /**
  * Transparent click-through overlay used by ESP and Tracers.
@@ -32,6 +33,7 @@ public final class OverlayRenderer {
     private volatile List<TracerLine> tracerLines = Collections.emptyList();
     private volatile List<String> arrayListModules = Collections.emptyList();
     private volatile boolean showHealth;
+    private volatile long lastVisibilityLog;
 
     private JWindow window;
     private OverlayPanel panel;
@@ -93,15 +95,19 @@ public final class OverlayRenderer {
             }
 
             DisplayAccess.Snapshot display = DisplayAccess.snapshot();
-            boolean visible = hasContent() && display != null && display.active && display.width > 0 && display.height > 0;
+            boolean visible = hasContent() && display != null && display.width > 0 && display.height > 0;
 
             if (!visible) {
-                if (display == null) {
-                    System.out.println("[OnionMCC-Overlay] DisplayAccess returned null");
-                } else if (!display.active) {
-                    System.out.println("[OnionMCC-Overlay] Display inactive");
-                } else if (display.width <= 0 || display.height <= 0) {
-                    System.out.println("[OnionMCC-Overlay] Display size invalid: " + display.width + "x" + display.height);
+                long now = System.currentTimeMillis();
+                if (now - lastVisibilityLog >= 2000L) {
+                    lastVisibilityLog = now;
+                    if (display == null) {
+                        OnionMCC.getInstance().logToFile("Overlay hidden: DisplayAccess returned null");
+                    } else if (display.width <= 0 || display.height <= 0) {
+                        OnionMCC.getInstance().logToFile("Overlay hidden: invalid display size " + display.width + "x" + display.height);
+                    } else {
+                        OnionMCC.getInstance().logToFile("Overlay hidden: no content to draw");
+                    }
                 }
                 window.setVisible(false);
                 return;
@@ -109,9 +115,11 @@ public final class OverlayRenderer {
 
             if (window.getX() != display.x || window.getY() != display.y
                     || window.getWidth() != display.width || window.getHeight() != display.height) {
-                System.out.println("[OnionMCC-Overlay] Resizing to: " + display.x + ", " + display.y + " | " + display.width + "x" + display.height);
+                OnionMCC.getInstance().logToFile("Overlay resize: " + display.x + ", " + display.y + " | " + display.width + "x" + display.height);
                 window.setBounds(display.x, display.y, display.width, display.height);
                 panel.setPreferredSize(new Dimension(display.width, display.height));
+                panel.setSize(display.width, display.height);
+                panel.revalidate();
             }
 
             if (!window.isVisible()) {
@@ -139,6 +147,7 @@ public final class OverlayRenderer {
                 SwingUtilities.invokeAndWait(() -> {
                     window = new JWindow();
                     window.setBackground(new Color(0, 0, 0, 0));
+                    window.setAutoRequestFocus(false);
                     window.setFocusableWindowState(false);
                     window.setAlwaysOnTop(true);
                     panel = new OverlayPanel();
@@ -152,9 +161,23 @@ public final class OverlayRenderer {
     }
 
     private void applyClickThrough() {
-        // Disabled native JNA hacks. Java 17 automatically handles per-pixel alpha transparency
-        // and routes clicks through transparent pixels. Forcing WS_EX_TRANSPARENT via JNA 
-        // causes DWM to discard the entire window buffer on some Windows 11 builds.
+        if (window == null) {
+            return;
+        }
+        try {
+            Pointer pointer = Native.getComponentPointer(window);
+            if (pointer == null) {
+                return;
+            }
+            HWND hwnd = new HWND(pointer);
+            int style = User32.INSTANCE.GetWindowLong(hwnd, WinUser.GWL_EXSTYLE);
+            style |= WinUser.WS_EX_LAYERED;
+            style |= WinUser.WS_EX_TRANSPARENT;
+            style |= WS_EX_TOOLWINDOW;
+            User32.INSTANCE.SetWindowLong(hwnd, WinUser.GWL_EXSTYLE, style);
+        } catch (Throwable t) {
+            OnionMCC.getInstance().logToFile("Overlay click-through apply failed: " + t.getMessage());
+        }
     }
 
     private final class OverlayPanel extends JComponent {

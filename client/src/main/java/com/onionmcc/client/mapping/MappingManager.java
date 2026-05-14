@@ -164,6 +164,9 @@ public class MappingManager {
         entity.addFieldMapping("posX", "s,field_70165_t");
         entity.addFieldMapping("posY", "t,field_70163_u");
         entity.addFieldMapping("posZ", "u,field_70161_v");
+        entity.addFieldMapping("lastTickPosX", "P,field_70142_S");
+        entity.addFieldMapping("lastTickPosY", "Q,field_70137_T");
+        entity.addFieldMapping("lastTickPosZ", "R,field_70136_U");
         entity.addFieldMapping("motionX", "v,field_70159_w");
         entity.addFieldMapping("motionY", "w,field_70181_x");
         entity.addFieldMapping("motionZ", "x,field_70179_y");

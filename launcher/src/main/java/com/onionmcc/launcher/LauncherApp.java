@@ -52,8 +52,10 @@ public class LauncherApp extends Application {
     private Circle statusDot;
     private Label versionLabel;
     private TextArea consoleArea;
+    private TextArea logsArea;
     private String expectedPid;
     private int expectedIpcPort = 47891;
+    private volatile String lastLogsSnapshot = "";
 
     // ── Colors ───────────────────────────────────────────────────────
     private static final String BG_DARK = "#070711";
@@ -117,6 +119,7 @@ public class LauncherApp extends Application {
 
         loadDefaultModules();
         startAutoInjector();
+        startLogsMonitor();
 
         log("OnionMCC Launcher v1.0.0 ready.");
         log("Waiting for Minecraft process to auto-inject...");
@@ -1008,14 +1011,43 @@ public class LauncherApp extends Application {
         clearBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + TEXT_DIM + "; -fx-font-size: 9; -fx-cursor: hand;");
         clearBtn.setOnMouseEntered(e -> clearBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + ACCENT_LIGHT + "; -fx-font-size: 9; -fx-cursor: hand;"));
         clearBtn.setOnMouseExited(e -> clearBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + TEXT_DIM + "; -fx-font-size: 9; -fx-cursor: hand;"));
-        clearBtn.setOnAction(e -> consoleArea.clear());
+        clearBtn.setOnAction(e -> {
+            if (consoleArea != null) {
+                consoleArea.clear();
+            }
+        });
 
-        header.getChildren().addAll(consoleTitle, spacer, clearBtn);
+        Button refreshLogsBtn = new Button("Refresh Logs");
+        refreshLogsBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + TEXT_DIM + "; -fx-font-size: 9; -fx-cursor: hand;");
+        refreshLogsBtn.setOnMouseEntered(e -> refreshLogsBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + ACCENT_LIGHT + "; -fx-font-size: 9; -fx-cursor: hand;"));
+        refreshLogsBtn.setOnMouseExited(e -> refreshLogsBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + TEXT_DIM + "; -fx-font-size: 9; -fx-cursor: hand;"));
+        refreshLogsBtn.setOnAction(e -> refreshLogsView());
 
-        consoleArea = new TextArea();
-        consoleArea.setEditable(false);
-        consoleArea.setWrapText(true);
-        consoleArea.setStyle("""
+        header.getChildren().addAll(consoleTitle, spacer, refreshLogsBtn, clearBtn);
+
+        consoleArea = createOutputArea();
+        logsArea = createOutputArea();
+        logsArea.setText("No agent log found yet.");
+
+        TabPane tabs = new TabPane();
+        tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        tabs.setStyle("-fx-background-color: transparent; -fx-padding: 0 6 4 6;");
+
+        Tab consoleTab = new Tab("Console", consoleArea);
+        Tab logsTab = new Tab("Logs", logsArea);
+        tabs.getTabs().addAll(consoleTab, logsTab);
+        VBox.setVgrow(tabs, Priority.ALWAYS);
+
+        bottom.getChildren().addAll(header, tabs);
+        bottomWrapper.getChildren().add(bottom);
+        return bottomWrapper;
+    }
+
+    private TextArea createOutputArea() {
+        TextArea area = new TextArea();
+        area.setEditable(false);
+        area.setWrapText(true);
+        area.setStyle("""
                     -fx-control-inner-background: %s;
                     -fx-text-fill: %s;
                     -fx-font-family: 'Consolas', 'Courier New', monospace;
@@ -1023,12 +1055,9 @@ public class LauncherApp extends Application {
                     -fx-border-color: transparent;
                     -fx-background-color: transparent;
                 """.formatted(BG_PANEL, TEXT_SECONDARY));
-        VBox.setVgrow(consoleArea, Priority.ALWAYS);
-        VBox.setMargin(consoleArea, new Insets(0, 6, 4, 6));
-
-        bottom.getChildren().addAll(header, consoleArea);
-        bottomWrapper.getChildren().add(bottom);
-        return bottomWrapper;
+        VBox.setVgrow(area, Priority.ALWAYS);
+        VBox.setMargin(area, new Insets(0, 6, 4, 6));
+        return area;
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -1275,6 +1304,91 @@ public class LauncherApp extends Application {
         });
     }
 
+    private void startLogsMonitor() {
+        Thread t = new Thread(() -> {
+            while (true) {
+                try {
+                    refreshLogsView();
+                    Thread.sleep(1000);
+                } catch (InterruptedException ignored) {
+                    return;
+                }
+            }
+        }, "OnionMCC-LogsMonitor");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    private void refreshLogsView() {
+        try {
+            Path latestLog = resolveLatestAgentLogPath();
+            String nextSnapshot;
+            if (latestLog == null) {
+                nextSnapshot = "No agent log found yet.";
+            } else {
+                nextSnapshot = readLogTail(latestLog, 250);
+            }
+
+            if (!nextSnapshot.equals(lastLogsSnapshot)) {
+                lastLogsSnapshot = nextSnapshot;
+                Platform.runLater(() -> {
+                    if (logsArea != null) {
+                        logsArea.setText(nextSnapshot);
+                        logsArea.positionCaret(nextSnapshot.length());
+                    }
+                });
+            }
+        } catch (Exception e) {
+            String errorText = "Failed to load logs: " + e.getMessage();
+            if (!errorText.equals(lastLogsSnapshot)) {
+                lastLogsSnapshot = errorText;
+                Platform.runLater(() -> {
+                    if (logsArea != null) {
+                        logsArea.setText(errorText);
+                    }
+                });
+            }
+        }
+    }
+
+    private Path resolveLatestAgentLogPath() {
+        try {
+            String injectorPath = injector.getLastAgentLogPath();
+            if (injectorPath != null && !injectorPath.isBlank()) {
+                Path path = Paths.get(injectorPath);
+                if (Files.exists(path)) {
+                    return path;
+                }
+            }
+
+            Path tempDir = Paths.get(System.getProperty("java.io.tmpdir"));
+            try (var stream = Files.list(tempDir)) {
+                return stream
+                        .filter(Files::isRegularFile)
+                        .filter(path -> path.getFileName().toString().startsWith("onionmcc-agent-"))
+                        .filter(path -> path.getFileName().toString().endsWith(".log"))
+                        .max(Comparator.comparingLong(this::lastModifiedSafe))
+                        .orElse(null);
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private long lastModifiedSafe(Path path) {
+        try {
+            return Files.getLastModifiedTime(path).toMillis();
+        } catch (Exception ignored) {
+            return Long.MIN_VALUE;
+        }
+    }
+
+    private String readLogTail(Path path, int maxLines) throws Exception {
+        List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
+        int start = Math.max(0, lines.size() - maxLines);
+        return String.join(System.lineSeparator(), lines.subList(start, lines.size()));
+    }
+
     private void showAgentLogTail() {
         try {
             String agentLogPath = injector.getLastAgentLogPath();
@@ -1295,6 +1409,7 @@ public class LauncherApp extends Application {
             for (int i = start; i < lines.size(); i++) {
                 log("  " + lines.get(i));
             }
+            refreshLogsView();
         } catch (Exception e) {
             log("Failed to read agent log tail: " + e.getMessage());
         }
