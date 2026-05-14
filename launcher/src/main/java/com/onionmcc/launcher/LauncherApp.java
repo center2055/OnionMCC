@@ -186,7 +186,6 @@ public class LauncherApp extends Application {
                                 updateStatus(true, "Injected");
                                 ipcClient.requestState();
                                 log("✓ IPC connected on port " + ipcConnectedPort + ". Syncing module states...");
-                                pushLocalConfigToIPC();
                             } else {
                                 log("IPC connection failed on port " + expectedIpcPort + ".");
                                 updateStatus(false, "IPC Failed");
@@ -218,8 +217,8 @@ public class LauncherApp extends Application {
         for (Map.Entry<String, JsonObject> entry : moduleStates.entrySet()) {
             String name = entry.getKey();
             JsonObject mod = entry.getValue();
-            if (mod.has("enabled") && mod.get("enabled").getAsBoolean()) {
-                ipcClient.toggleModule(name); 
+            if (mod.has("enabled")) {
+                ipcClient.setModuleEnabled(name, mod.get("enabled").getAsBoolean());
             }
             if (mod.has("settings")) {
                 JsonObject settings = mod.getAsJsonObject("settings");
@@ -228,9 +227,20 @@ public class LauncherApp extends Application {
                     if (val.isJsonPrimitive()) {
                         if (val.getAsJsonPrimitive().isBoolean()) {
                             ipcClient.updateSetting(name, key, val.getAsBoolean());
+                        } else if (val.getAsJsonPrimitive().isNumber()) {
+                            ipcClient.updateSetting(name, key, val.getAsDouble());
+                        } else if (val.getAsJsonPrimitive().isString()) {
+                            ipcClient.updateSetting(name, key, val.getAsString());
                         }
                     } else if (val.isJsonObject() && val.getAsJsonObject().has("value")) {
-                        ipcClient.updateSetting(name, key, val.getAsJsonObject().get("value").getAsDouble());
+                        JsonElement value = val.getAsJsonObject().get("value");
+                        if (value.getAsJsonPrimitive().isBoolean()) {
+                            ipcClient.updateSetting(name, key, value.getAsBoolean());
+                        } else if (value.getAsJsonPrimitive().isNumber()) {
+                            ipcClient.updateSetting(name, key, value.getAsDouble());
+                        } else if (value.getAsJsonPrimitive().isString()) {
+                            ipcClient.updateSetting(name, key, value.getAsString());
+                        }
                     }
                 }
             }
@@ -1105,38 +1115,8 @@ public class LauncherApp extends Application {
                     if (msg.has("modules")) {
                         JsonObject modules = msg.getAsJsonObject("modules");
                         if (modules.size() > 0) {
-                            // Merge client's fresh state but keep our locally loaded config if it overrides
                             for (String key : modules.keySet()) {
-                                if (moduleStates.containsKey(key)) {
-                                    JsonObject clientMod = modules.getAsJsonObject(key);
-                                    JsonObject localMod = moduleStates.get(key);
-                                    
-                                    boolean localEnabled = localMod.has("enabled") && localMod.get("enabled").getAsBoolean();
-                                    
-                                    // only override if we haven't set settings locally
-                                    if (!localMod.has("settings") || localMod.getAsJsonObject("settings").size() == 0) {
-                                        clientMod.addProperty("enabled", localEnabled);
-                                        moduleStates.put(key, clientMod);
-                                    } else {
-                                        // Merge settings structure (min/max bounds from client)
-                                        if (clientMod.has("settings")) {
-                                            JsonObject clientSettings = clientMod.getAsJsonObject("settings");
-                                            JsonObject localSettings = localMod.getAsJsonObject("settings");
-                                            for (String sKey : clientSettings.keySet()) {
-                                                if (localSettings.has(sKey)) {
-                                                    JsonElement cVal = clientSettings.get(sKey);
-                                                    JsonElement lVal = localSettings.get(sKey);
-                                                    if (cVal.isJsonObject() && lVal.isJsonObject()) {
-                                                        cVal.getAsJsonObject().add("value", lVal.getAsJsonObject().get("value"));
-                                                        localSettings.add(sKey, cVal);
-                                                    }
-                                                } else {
-                                                    localSettings.add(sKey, clientSettings.get(sKey));
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                                moduleStates.put(key, modules.getAsJsonObject(key).deepCopy());
                             }
                             refreshModuleList();
                             log("Synced modules with client.");
