@@ -65,8 +65,8 @@ public class SilentAim extends Module {
                 if (bestTarget != null) {
                     final Object target = bestTarget;
                     mc.runOnMainThread(() -> {
-                        mc.swingItem(player);
                         mc.attackEntity(target);
+                        mc.swingItem(player);
                     });
                 }
             } catch (Exception ignored) {}

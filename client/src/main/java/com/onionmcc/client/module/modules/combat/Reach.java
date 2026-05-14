@@ -53,8 +53,8 @@ public class Reach extends Module {
                     Object target = findTargetInCrosshair(mc, player, tickReach);
                     if (target != null && mc.distanceTo(target) > 3.0) {
                         mc.runOnMainThread(() -> {
-                            mc.swingItem(player);
                             mc.attackEntity(target);
+                            mc.swingItem(player);
                         });
                         lastClick = now;
                     }

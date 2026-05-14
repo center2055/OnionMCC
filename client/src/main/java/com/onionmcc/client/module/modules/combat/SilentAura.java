@@ -85,8 +85,8 @@ public class SilentAura extends Module {
 
                 mc.runOnMainThread(() -> {
                     try {
-                        mc.swingItem(player);
                         mc.attackEntity(target);
+                        mc.swingItem(player);
                     } catch (Exception ignored) {}
                 });
             }
