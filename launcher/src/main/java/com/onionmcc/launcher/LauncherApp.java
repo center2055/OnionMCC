@@ -1001,8 +1001,17 @@ public class LauncherApp extends Application {
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(6, 12, 3, 12));
 
-        Label consoleTitle = new Label("CONSOLE");
+        Label consoleTitle = new Label("OUTPUT");
         consoleTitle.setStyle("-fx-text-fill: " + ACCENT_LIGHT + "; -fx-font-size: 9; -fx-font-weight: bold;");
+
+        Button consoleTabBtn = new Button("Console");
+        Button logsTabBtn = new Button("Logs");
+        styleOutputTabButton(consoleTabBtn, true);
+        styleOutputTabButton(logsTabBtn, false);
+
+        HBox viewSwitch = new HBox(2, consoleTabBtn, logsTabBtn);
+        viewSwitch.setAlignment(Pos.CENTER_LEFT);
+        viewSwitch.setPadding(new Insets(0, 0, 0, 10));
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -1017,30 +1026,61 @@ public class LauncherApp extends Application {
             }
         });
 
-        Button refreshLogsBtn = new Button("Refresh Logs");
+        Button refreshLogsBtn = new Button("Refresh");
         refreshLogsBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + TEXT_DIM + "; -fx-font-size: 9; -fx-cursor: hand;");
         refreshLogsBtn.setOnMouseEntered(e -> refreshLogsBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + ACCENT_LIGHT + "; -fx-font-size: 9; -fx-cursor: hand;"));
         refreshLogsBtn.setOnMouseExited(e -> refreshLogsBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + TEXT_DIM + "; -fx-font-size: 9; -fx-cursor: hand;"));
         refreshLogsBtn.setOnAction(e -> refreshLogsView());
 
-        header.getChildren().addAll(consoleTitle, spacer, refreshLogsBtn, clearBtn);
+        header.getChildren().addAll(consoleTitle, viewSwitch, spacer, refreshLogsBtn, clearBtn);
 
         consoleArea = createOutputArea();
         logsArea = createOutputArea();
         logsArea.setText("No agent log found yet.");
 
-        TabPane tabs = new TabPane();
-        tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        tabs.setStyle("-fx-background-color: transparent; -fx-padding: 0 6 4 6;");
+        StackPane outputStack = new StackPane(consoleArea, logsArea);
+        logsArea.setVisible(false);
+        logsArea.setManaged(false);
+        VBox.setVgrow(outputStack, Priority.ALWAYS);
 
-        Tab consoleTab = new Tab("Console", consoleArea);
-        Tab logsTab = new Tab("Logs", logsArea);
-        tabs.getTabs().addAll(consoleTab, logsTab);
-        VBox.setVgrow(tabs, Priority.ALWAYS);
+        consoleTabBtn.setOnAction(e -> {
+            consoleArea.setVisible(true);
+            consoleArea.setManaged(true);
+            logsArea.setVisible(false);
+            logsArea.setManaged(false);
+            styleOutputTabButton(consoleTabBtn, true);
+            styleOutputTabButton(logsTabBtn, false);
+        });
+        logsTabBtn.setOnAction(e -> {
+            consoleArea.setVisible(false);
+            consoleArea.setManaged(false);
+            logsArea.setVisible(true);
+            logsArea.setManaged(true);
+            styleOutputTabButton(consoleTabBtn, false);
+            styleOutputTabButton(logsTabBtn, true);
+            refreshLogsView();
+        });
 
-        bottom.getChildren().addAll(header, tabs);
+        bottom.getChildren().addAll(header, outputStack);
         bottomWrapper.getChildren().add(bottom);
         return bottomWrapper;
+    }
+
+    private void styleOutputTabButton(Button btn, boolean active) {
+        String bg = active ? BG_SURFACE : "transparent";
+        String border = active ? BORDER_SOLID : "transparent";
+        String text = active ? TEXT_PRIMARY : TEXT_DIM;
+        btn.setStyle("-fx-background-color: " + bg + "; -fx-border-color: " + border
+                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4;"
+                + " -fx-text-fill: " + text + "; -fx-font-size: 9; -fx-padding: 2 8 2 8; -fx-cursor: hand;");
+        btn.setOnMouseEntered(e -> {
+            if (!active) {
+                btn.setStyle("-fx-background-color: " + BG_CARD + "; -fx-border-color: " + BORDER_SOLID
+                        + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4;"
+                        + " -fx-text-fill: " + TEXT_SECONDARY + "; -fx-font-size: 9; -fx-padding: 2 8 2 8; -fx-cursor: hand;");
+            }
+        });
+        btn.setOnMouseExited(e -> styleOutputTabButton(btn, active));
     }
 
     private TextArea createOutputArea() {
@@ -1057,6 +1097,7 @@ public class LauncherApp extends Application {
                 """.formatted(BG_PANEL, TEXT_SECONDARY));
         VBox.setVgrow(area, Priority.ALWAYS);
         VBox.setMargin(area, new Insets(0, 6, 4, 6));
+        StackPane.setMargin(area, new Insets(0, 6, 4, 6));
         return area;
     }
 
