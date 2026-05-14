@@ -124,9 +124,11 @@ public class KillAura extends Module {
                 baseTicks = Math.max(1, baseTicks);
                 nextAttackDelay = baseTicks * 50L;
                 
+                final Object targetToAttack = currentTarget;
                 mc.runOnMainThread(() -> {
                     try {
-                        mc.simulateClick(true);
+                        mc.attackEntity(targetToAttack);
+                        mc.swingItem(player);
                     } catch (Exception ignored) {}
                 });
             }
