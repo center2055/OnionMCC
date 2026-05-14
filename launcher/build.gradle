@@ -25,12 +25,11 @@ task copyPayloads(type: Copy) {
     from project(':client').layout.buildDirectory.dir('libs')
     include 'onionmcc-agent-*.jar'
     include 'onionmcc-client-*.jar'
-    into "${projectDir}/src/main/resources/payloads"
+    into "$buildDir/payloads"
 }
 
-processResources.dependsOn copyPayloads
-
 jar {
+    dependsOn copyPayloads
     manifest {
         attributes(
             'Main-Class': 'com.onionmcc.launcher.Main'
@@ -39,6 +38,10 @@ jar {
     
     from {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    
+    from("$buildDir/payloads") {
+        into "payloads"
     }
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
