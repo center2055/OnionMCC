@@ -80,19 +80,9 @@ public class ModuleManager {
                 .collect(Collectors.toList());
     }
 
-    private long lastLog = 0;
-
     public void onTick() {
-        long now = System.currentTimeMillis();
-        boolean shouldLog = now - lastLog > 1000;
-        if (shouldLog) {
-            lastLog = now;
-        }
-        
-        int enabledCount = 0;
         for (Module module : modules) {
             if (module.isEnabled()) {
-                enabledCount++;
                 try {
                     module.onTick();
                 } catch (Throwable e) {
@@ -101,10 +91,6 @@ public class ModuleManager {
                     OnionMCC.getInstance().logError("Module tick failure in " + module.getName(), e);
                 }
             }
-        }
-        
-        if (shouldLog && enabledCount > 0) {
-            OnionMCC.getInstance().logToFile("ModuleManager onTick called. " + enabledCount + " modules enabled.");
         }
     }
 

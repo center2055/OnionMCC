@@ -7,6 +7,7 @@ import com.onionmcc.client.module.ModuleCategory;
 import com.onionmcc.client.render.OverlayRenderer;
 import com.onionmcc.client.render.ProjectionHelper;
 
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,13 +35,22 @@ public class Tracers extends Module {
 
         Object player = mc.getPlayer();
         List<Object> players = mc.getWorldPlayers();
+        Object[] playerSnapshot = players.toArray();
         List<OverlayRenderer.TracerLine> lines = new ArrayList<>();
+        ProjectionHelper.Frame frame = ProjectionHelper.captureFrame(mc, player);
+        if (frame == null) {
+            OverlayRenderer.getInstance().clearTracers();
+            return;
+        }
 
-        for (Object entity : players) {
+        for (Object entity : playerSnapshot) {
             if (entity == player || entity == null) continue;
             if (mc.isEntityDead(entity) || mc.isInvisible(entity)) continue;
 
-            OverlayRenderer.TracerLine line = ProjectionHelper.projectTracer(mc, player, entity);
+            OverlayRenderer.TracerLine line = ProjectionHelper.projectTracer(mc, frame, entity,
+                    frame.getScreenWidth() / 2.0,
+                    frame.getScreenHeight(),
+                    new Color(64, 255, 160, 220));
             if (line != null) {
                 lines.add(line);
             }

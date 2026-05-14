@@ -10,113 +10,19 @@ import java.awt.geom.Point2D;
  */
 public final class ProjectionHelper {
 
-    private static final double PLAYER_EYE_HEIGHT = 1.62;
-    private static volatile String lastProjectionFailure = "none";
-
     private ProjectionHelper() {
     }
 
-    public static OverlayRenderer.EspBox projectEspBox(MinecraftAccessor mc, Object player, Object entity) {
+    public static Frame captureFrame(MinecraftAccessor mc, Object player) {
         DisplayAccess.Snapshot display = DisplayAccess.snapshot();
-        if (display == null || display.width <= 0 || display.height <= 0) {
-            return null;
-        }
-        float partialTicks = mc.getPartialTicks();
-        double entityX = mc.getEntityLastTickPosX(entity) + ((mc.getEntityPosX(entity) - mc.getEntityLastTickPosX(entity)) * partialTicks);
-        double entityY = mc.getEntityLastTickPosY(entity) + ((mc.getEntityPosY(entity) - mc.getEntityLastTickPosY(entity)) * partialTicks);
-        double entityZ = mc.getEntityLastTickPosZ(entity) + ((mc.getEntityPosZ(entity) - mc.getEntityLastTickPosZ(entity)) * partialTicks);
-        double halfWidth = getEntityHalfWidth(mc, entity);
-        double height = getEntityHeight(mc, entity);
-
-        double[][] corners = {
-                { entityX - halfWidth, entityY, entityZ - halfWidth },
-                { entityX + halfWidth, entityY, entityZ - halfWidth },
-                { entityX - halfWidth, entityY, entityZ + halfWidth },
-                { entityX + halfWidth, entityY, entityZ + halfWidth },
-                { entityX - halfWidth, entityY + height, entityZ - halfWidth },
-                { entityX + halfWidth, entityY + height, entityZ - halfWidth },
-                { entityX - halfWidth, entityY + height, entityZ + halfWidth },
-                { entityX + halfWidth, entityY + height, entityZ + halfWidth }
-        };
-
-        double minX = Double.POSITIVE_INFINITY;
-        double minY = Double.POSITIVE_INFINITY;
-        double maxX = Double.NEGATIVE_INFINITY;
-        double maxY = Double.NEGATIVE_INFINITY;
-        int visibleCorners = 0;
-
-        for (double[] corner : corners) {
-            Point2D.Double screen = worldToScreen(mc, player, corner[0], corner[1], corner[2], display);
-            if (screen == null) {
-                continue;
-            }
-
-            visibleCorners++;
-            minX = Math.min(minX, screen.x);
-            minY = Math.min(minY, screen.y);
-            maxX = Math.max(maxX, screen.x);
-            maxY = Math.max(maxY, screen.y);
-        }
-
-        if (visibleCorners < 2 || !Double.isFinite(minX) || !Double.isFinite(minY)
-                || !Double.isFinite(maxX) || !Double.isFinite(maxY)) {
+        if (display == null || display.width <= 0 || display.height <= 0 || !display.active) {
             return null;
         }
 
-        double boxWidth = maxX - minX;
-        double boxHeight = maxY - minY;
-        if (boxWidth < 4.0 || boxHeight < 8.0) {
-            return null;
-        }
-
-        double health = mc.getEntityHealth(entity);
-        double maxHealth = Math.max(1.0, mc.getEntityMaxHealth(entity));
-
-        return new OverlayRenderer.EspBox(
-                minX,
-                minY,
-                boxWidth,
-                boxHeight,
-                clamp(health / maxHealth),
-                mc.getEntityName(entity),
-                getColor(mc, entity));
-    }
-
-    public static OverlayRenderer.TracerLine projectTracer(MinecraftAccessor mc, Object player, Object entity) {
-        DisplayAccess.Snapshot display = DisplayAccess.snapshot();
-        if (display == null || display.width <= 0 || display.height <= 0) {
-            return null;
-        }
-
-        float partialTicks = mc.getPartialTicks();
-        double entityX = mc.getEntityLastTickPosX(entity) + ((mc.getEntityPosX(entity) - mc.getEntityLastTickPosX(entity)) * partialTicks);
-        double entityY = mc.getEntityLastTickPosY(entity) + ((mc.getEntityPosY(entity) - mc.getEntityLastTickPosY(entity)) * partialTicks);
-        double entityZ = mc.getEntityLastTickPosZ(entity) + ((mc.getEntityPosZ(entity) - mc.getEntityLastTickPosZ(entity)) * partialTicks);
-
-        Point2D.Double center = worldToScreen(mc, player,
-                entityX,
-                entityY + (getEntityHeight(mc, entity) * 0.5),
-                entityZ,
-                display);
-        if (center == null) {
-            return null;
-        }
-
-        return new OverlayRenderer.TracerLine(
-                display.width / 2.0,
-                display.height / 2.0,
-                center.x,
-                center.y,
-                getColor(mc, entity));
-    }
-
-    private static Point2D.Double worldToScreen(MinecraftAccessor mc, Object player, double worldX, double worldY,
-            double worldZ, DisplayAccess.Snapshot display) {
         double[] modelView = new double[16];
         double[] projection = new double[16];
         int[] viewport = new int[4];
         if (!mc.getActiveRenderInfo(modelView, projection, viewport)) {
-            lastProjectionFailure = "active_render_info_unavailable";
             return null;
         }
 
@@ -125,9 +31,79 @@ public final class ProjectionHelper {
         double localY = mc.getEntityLastTickPosY(player) + ((mc.getEntityPosY(player) - mc.getEntityLastTickPosY(player)) * partialTicks);
         double localZ = mc.getEntityLastTickPosZ(player) + ((mc.getEntityPosZ(player) - mc.getEntityLastTickPosZ(player)) * partialTicks);
 
-        double relX = worldX - localX;
-        double relY = worldY - localY;
-        double relZ = worldZ - localZ;
+        return new Frame(display, modelView, projection, viewport, partialTicks, localX, localY, localZ);
+    }
+
+    public static OverlayRenderer.EspBox projectEspBox(MinecraftAccessor mc, Frame frame, Object entity, Color color) {
+        if (frame == null) {
+            return null;
+        }
+
+        double entityX = mc.getEntityLastTickPosX(entity) + ((mc.getEntityPosX(entity) - mc.getEntityLastTickPosX(entity)) * frame.partialTicks);
+        double entityY = mc.getEntityLastTickPosY(entity) + ((mc.getEntityPosY(entity) - mc.getEntityLastTickPosY(entity)) * frame.partialTicks);
+        double entityZ = mc.getEntityLastTickPosZ(entity) + ((mc.getEntityPosZ(entity) - mc.getEntityLastTickPosZ(entity)) * frame.partialTicks);
+        double height = getEntityHeight(mc, entity);
+
+        Point2D.Double feet = worldToScreen(frame, entityX, entityY, entityZ);
+        Point2D.Double head = worldToScreen(frame, entityX, entityY + height, entityZ);
+        if (feet == null || head == null) {
+            return null;
+        }
+
+        double boxHeight = Math.abs(feet.y - head.y);
+        if (!Double.isFinite(boxHeight) || boxHeight < 8.0) {
+            return null;
+        }
+        double boxWidth = Math.max(6.0, boxHeight * 0.42);
+        double centerX = (feet.x + head.x) * 0.5;
+        double top = Math.min(feet.y, head.y);
+
+        double health = mc.getEntityHealth(entity);
+        double maxHealth = Math.max(1.0, mc.getEntityMaxHealth(entity));
+
+        return new OverlayRenderer.EspBox(
+                centerX - (boxWidth * 0.5),
+                top,
+                boxWidth,
+                boxHeight,
+                clamp(health / maxHealth),
+                mc.getEntityName(entity),
+                color);
+    }
+
+    public static OverlayRenderer.TracerLine projectTracer(MinecraftAccessor mc, Frame frame, Object entity,
+            double originX, double originY, Color color) {
+        if (frame == null) {
+            return null;
+        }
+
+        double entityX = mc.getEntityLastTickPosX(entity) + ((mc.getEntityPosX(entity) - mc.getEntityLastTickPosX(entity)) * frame.partialTicks);
+        double entityY = mc.getEntityLastTickPosY(entity) + ((mc.getEntityPosY(entity) - mc.getEntityLastTickPosY(entity)) * frame.partialTicks);
+        double entityZ = mc.getEntityLastTickPosZ(entity) + ((mc.getEntityPosZ(entity) - mc.getEntityLastTickPosZ(entity)) * frame.partialTicks);
+
+        Point2D.Double center = worldToScreen(frame,
+                entityX,
+                entityY + (getEntityHeight(mc, entity) * 0.5),
+                entityZ);
+        if (center == null) {
+            return null;
+        }
+
+        return new OverlayRenderer.TracerLine(
+                originX,
+                originY,
+                center.x,
+                center.y,
+                color);
+    }
+
+    private static Point2D.Double worldToScreen(Frame frame, double worldX, double worldY, double worldZ) {
+        double relX = worldX - frame.localX;
+        double relY = worldY - frame.localY;
+        double relZ = worldZ - frame.localZ;
+        double[] modelView = frame.modelView;
+        double[] projection = frame.projection;
+        int[] viewport = frame.viewport;
 
         double[] transformed = new double[] {
                 modelView[0] * relX + modelView[4] * relY + modelView[8] * relZ + modelView[12],
@@ -142,7 +118,6 @@ public final class ProjectionHelper {
                 projection[3] * transformed[0] + projection[7] * transformed[1] + projection[11] * transformed[2] + projection[15] * transformed[3]
         };
         if (clip[3] <= 0.0) {
-            lastProjectionFailure = "clip_w_non_positive";
             return null;
         }
 
@@ -153,10 +128,9 @@ public final class ProjectionHelper {
 
         double viewportWidth = Math.max(1.0, viewport[2]);
         double viewportHeight = Math.max(1.0, viewport[3]);
-        double screenX = sx * (display.width / viewportWidth);
-        double screenY = sy * (display.height / viewportHeight);
+        double screenX = sx * (frame.display.width / viewportWidth);
+        double screenY = sy * (frame.display.height / viewportHeight);
 
-        lastProjectionFailure = "ok";
         return new Point2D.Double(screenX, screenY);
     }
 
@@ -164,19 +138,38 @@ public final class ProjectionHelper {
         return mc.isPlayerEntity(entity) ? 1.8 : 1.6;
     }
 
-    private static double getEntityHalfWidth(MinecraftAccessor mc, Object entity) {
-        return mc.isPlayerEntity(entity) ? 0.35 : 0.3;
-    }
-
     private static double clamp(double value) {
         return Math.max(0.0, Math.min(1.0, value));
     }
 
-    private static Color getColor(MinecraftAccessor mc, Object entity) {
-        return mc.isPlayerEntity(entity) ? new Color(64, 255, 160, 220) : new Color(255, 190, 64, 220);
-    }
+    public static final class Frame {
+        private final DisplayAccess.Snapshot display;
+        private final double[] modelView;
+        private final double[] projection;
+        private final int[] viewport;
+        private final float partialTicks;
+        private final double localX;
+        private final double localY;
+        private final double localZ;
 
-    public static String getLastProjectionFailure() {
-        return lastProjectionFailure;
+        private Frame(DisplayAccess.Snapshot display, double[] modelView, double[] projection, int[] viewport,
+                float partialTicks, double localX, double localY, double localZ) {
+            this.display = display;
+            this.modelView = modelView;
+            this.projection = projection;
+            this.viewport = viewport;
+            this.partialTicks = partialTicks;
+            this.localX = localX;
+            this.localY = localY;
+            this.localZ = localZ;
+        }
+
+        public int getScreenWidth() {
+            return display.width;
+        }
+
+        public int getScreenHeight() {
+            return display.height;
+        }
     }
 }

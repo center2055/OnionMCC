@@ -18,7 +18,7 @@ import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import com.onionmcc.client.OnionMCC;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Transparent click-through overlay used by ESP and Tracers.
@@ -33,7 +33,7 @@ public final class OverlayRenderer {
     private volatile List<TracerLine> tracerLines = Collections.emptyList();
     private volatile List<String> arrayListModules = Collections.emptyList();
     private volatile boolean showHealth;
-    private volatile long lastVisibilityLog;
+    private final AtomicBoolean refreshQueued = new AtomicBoolean(false);
 
     private JWindow window;
     private OverlayPanel panel;
@@ -89,45 +89,40 @@ public final class OverlayRenderer {
 
     private void refresh() {
         ensureWindow();
+        if (!refreshQueued.compareAndSet(false, true)) {
+            return;
+        }
         SwingUtilities.invokeLater(() -> {
-            if (window == null || panel == null) {
-                return;
-            }
-
-            DisplayAccess.Snapshot display = DisplayAccess.snapshot();
-            boolean visible = hasContent() && display != null && display.width > 0 && display.height > 0;
-
-            if (!visible) {
-                long now = System.currentTimeMillis();
-                if (now - lastVisibilityLog >= 2000L) {
-                    lastVisibilityLog = now;
-                    if (display == null) {
-                        OnionMCC.getInstance().logToFile("Overlay hidden: DisplayAccess returned null");
-                    } else if (display.width <= 0 || display.height <= 0) {
-                        OnionMCC.getInstance().logToFile("Overlay hidden: invalid display size " + display.width + "x" + display.height);
-                    } else {
-                        OnionMCC.getInstance().logToFile("Overlay hidden: no content to draw");
-                    }
+            try {
+                if (window == null || panel == null) {
+                    return;
                 }
-                window.setVisible(false);
-                return;
-            }
 
-            if (window.getX() != display.x || window.getY() != display.y
-                    || window.getWidth() != display.width || window.getHeight() != display.height) {
-                OnionMCC.getInstance().logToFile("Overlay resize: " + display.x + ", " + display.y + " | " + display.width + "x" + display.height);
-                window.setBounds(display.x, display.y, display.width, display.height);
-                panel.setPreferredSize(new Dimension(display.width, display.height));
-                panel.setSize(display.width, display.height);
-                panel.revalidate();
-            }
+                DisplayAccess.Snapshot display = DisplayAccess.snapshot();
+                boolean visible = hasContent() && display != null && display.width > 0 && display.height > 0;
 
-            if (!window.isVisible()) {
-                window.setVisible(true);
-                applyClickThrough();
-            }
+                if (!visible) {
+                    window.setVisible(false);
+                    return;
+                }
 
-            panel.repaint();
+                if (window.getX() != display.x || window.getY() != display.y
+                        || window.getWidth() != display.width || window.getHeight() != display.height) {
+                    window.setBounds(display.x, display.y, display.width, display.height);
+                    panel.setPreferredSize(new Dimension(display.width, display.height));
+                    panel.setSize(display.width, display.height);
+                    panel.revalidate();
+                }
+
+                if (!window.isVisible()) {
+                    window.setVisible(true);
+                    applyClickThrough();
+                }
+
+                panel.paintImmediately(0, 0, panel.getWidth(), panel.getHeight());
+            } finally {
+                refreshQueued.set(false);
+            }
         });
     }
 
@@ -176,7 +171,6 @@ public final class OverlayRenderer {
             style |= WS_EX_TOOLWINDOW;
             User32.INSTANCE.SetWindowLong(hwnd, WinUser.GWL_EXSTYLE, style);
         } catch (Throwable t) {
-            OnionMCC.getInstance().logToFile("Overlay click-through apply failed: " + t.getMessage());
         }
     }
 
