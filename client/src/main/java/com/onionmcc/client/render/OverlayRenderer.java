@@ -96,12 +96,20 @@ public final class OverlayRenderer {
             boolean visible = hasContent() && display != null && display.active && display.width > 0 && display.height > 0;
 
             if (!visible) {
+                if (display == null) {
+                    System.out.println("[OnionMCC-Overlay] DisplayAccess returned null");
+                } else if (!display.active) {
+                    System.out.println("[OnionMCC-Overlay] Display inactive");
+                } else if (display.width <= 0 || display.height <= 0) {
+                    System.out.println("[OnionMCC-Overlay] Display size invalid: " + display.width + "x" + display.height);
+                }
                 window.setVisible(false);
                 return;
             }
 
             if (window.getX() != display.x || window.getY() != display.y
                     || window.getWidth() != display.width || window.getHeight() != display.height) {
+                System.out.println("[OnionMCC-Overlay] Resizing to: " + display.x + ", " + display.y + " | " + display.width + "x" + display.height);
                 window.setBounds(display.x, display.y, display.width, display.height);
                 panel.setPreferredSize(new Dimension(display.width, display.height));
             }

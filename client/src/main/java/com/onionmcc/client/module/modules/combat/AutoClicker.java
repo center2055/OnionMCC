@@ -25,14 +25,22 @@ public class AutoClicker extends Module {
         super("AutoClicker", "Automatically clicks while the chosen mouse button is held", ModuleCategory.COMBAT, 0);
     }
 
+    private int originalLeftKeyCode = -999;
+    private int originalRightKeyCode = -999;
+
     @Override
     protected void onEnable() {
+        MinecraftAccessor mc = OnionMCC.getInstance().getMinecraft();
+        if (mc != null) {
+            originalLeftKeyCode = mc.getKeyBindCode("keyBindAttack", "ad", "field_74312_F");
+            originalRightKeyCode = mc.getKeyBindCode("keyBindUseItem", "ae", "field_74313_G");
+            mc.setKeyBindCode("keyBindAttack", "ad", "field_74312_F", 0);
+            mc.setKeyBindCode("keyBindUseItem", "ae", "field_74313_G", 0);
+        }
+
         clickerThread = new Thread(() -> {
             while (isEnabled()) {
                 try {
-                    MinecraftAccessor mc = OnionMCC.getInstance().getMinecraft();
-                    // Removed isMinecraftWindowActive() due to OptiFine fullscreen bugs.
-                    // Mouse.isButtonDown(0) physically ensures the user is interacting with the window anyway.
                     if (mc != null && mc.isInGame() && mc.getCurrentScreen() == null) {
                         boolean isLeftDown = leftClick.getValue() && mc.isMouseButtonDown(0);
                         boolean isRightDown = rightClick.getValue() && mc.isMouseButtonDown(1);
@@ -49,16 +57,11 @@ public class AutoClicker extends Module {
                             double min = minCps.getValue();
                             double max = maxCps.getValue();
                             double currentCps = min + Math.random() * (max - min);
-                            currentCps += (Math.random() - 0.5) * 4.0;
-                            currentCps = Math.max(2.0, Math.min(20.0, currentCps));
                             
                             double meanTicks = 20.0 / currentCps;
-                            int baseTicks = (int) Math.floor(meanTicks);
-                            if (Math.random() < (meanTicks - baseTicks)) {
-                                baseTicks++;
-                            }
-                            if (Math.random() < 0.40) {
-                                baseTicks += (Math.random() > 0.5 ? 1 : (baseTicks > 1 ? -1 : 2));
+                            int baseTicks = (int) Math.round(meanTicks + (Math.random() - 0.5) * 2.5);
+                            if (Math.random() < 0.3) {
+                                baseTicks += (Math.random() > 0.5 ? 2 : -1);
                             }
                             baseTicks = Math.max(1, baseTicks);
                             long sleepTime = baseTicks * 50L;
@@ -66,15 +69,8 @@ public class AutoClicker extends Module {
                             final boolean doLeft = isLeftDown && !cancelLeftClick;
                             
                             mc.runOnMainThread(() -> {
-                                if (doLeft) {
-                                    // To break Minecraft's internal 'button held down' lock, we must tell the game the key went UP then DOWN
-                                    mc.setKeyBindState("keyBindAttack", "ad", "field_74312_F", false);
-                                    mc.setLeftClickCounter(0);
-                                }
+                                if (doLeft) mc.setLeftClickCounter(0);
                                 mc.simulateClick(doLeft);
-                                if (doLeft) {
-                                    mc.setKeyBindState("keyBindAttack", "ad", "field_74312_F", true);
-                                }
                                 applyJitter(mc);
                             });
                             
@@ -98,11 +94,27 @@ public class AutoClicker extends Module {
             clickerThread.interrupt();
             clickerThread = null;
         }
+        MinecraftAccessor mc = OnionMCC.getInstance().getMinecraft();
+        if (mc != null) {
+            if (originalLeftKeyCode != -999) mc.setKeyBindCode("keyBindAttack", "ad", "field_74312_F", originalLeftKeyCode);
+            if (originalRightKeyCode != -999) mc.setKeyBindCode("keyBindUseItem", "ae", "field_74313_G", originalRightKeyCode);
+        }
     }
 
     @Override
     public void onTick() {
-        // Handled by async thread to break 50ms quantization
+        MinecraftAccessor mc = OnionMCC.getInstance().getMinecraft();
+        if (!mc.isInGame()) return;
+        
+        // Ensure keys stay unbound during gameplay if the user changes settings
+        if (mc.getKeyBindCode("keyBindAttack", "ad", "field_74312_F") != 0) {
+            originalLeftKeyCode = mc.getKeyBindCode("keyBindAttack", "ad", "field_74312_F");
+            mc.setKeyBindCode("keyBindAttack", "ad", "field_74312_F", 0);
+        }
+        if (mc.getKeyBindCode("keyBindUseItem", "ae", "field_74313_G") != 0) {
+            originalRightKeyCode = mc.getKeyBindCode("keyBindUseItem", "ae", "field_74313_G");
+            mc.setKeyBindCode("keyBindUseItem", "ae", "field_74313_G", 0);
+        }
     }
 
     private void applyJitter(MinecraftAccessor mc) {

@@ -1,59 +1,46 @@
 package com.onionmcc.client.render;
 
-import java.lang.reflect.Method;
-import com.onionmcc.client.OnionMCC;
+import com.sun.jna.Native;
+import com.sun.jna.platform.win32.User32;
+import com.sun.jna.platform.win32.WinDef.HWND;
+import com.sun.jna.platform.win32.WinDef.POINT;
+import com.sun.jna.platform.win32.WinDef.RECT;
+import com.sun.jna.win32.StdCallLibrary;
+import com.sun.jna.win32.W32APIOptions;
 
 public final class DisplayAccess {
 
-    private static Class<?> displayClass;
-    private static Method getX;
-    private static Method getY;
-    private static Method getWidth;
-    private static Method getHeight;
-    private static Method isActive;
+    public interface ExtendedUser32 extends StdCallLibrary {
+        ExtendedUser32 INSTANCE = (ExtendedUser32) Native.loadLibrary("user32", ExtendedUser32.class, W32APIOptions.DEFAULT_OPTIONS);
+        boolean ClientToScreen(HWND hWnd, POINT lpPoint);
+    }
 
     private DisplayAccess() {
     }
 
     public static Snapshot snapshot() {
         try {
-            if (displayClass == null) {
-                java.lang.instrument.Instrumentation inst = OnionMCC.getInstance().getInstrumentation();
-                if (inst != null) {
-                    for (Class<?> c : inst.getAllLoadedClasses()) {
-                        if ("org.lwjgl.opengl.Display".equals(c.getName())) {
-                            displayClass = c;
-                            break;
-                        }
-                    }
-                }
-                if (displayClass == null) {
-                    try {
-                        displayClass = Class.forName("org.lwjgl.opengl.Display");
-                    } catch (ClassNotFoundException e) {
-                        return null;
-                    }
-                }
-
-                getX = displayClass.getMethod("getX");
-                getY = displayClass.getMethod("getY");
-                getWidth = displayClass.getMethod("getWidth");
-                getHeight = displayClass.getMethod("getHeight");
-                isActive = displayClass.getMethod("isActive");
+            HWND hwnd = User32.INSTANCE.FindWindow("LWJGL", null);
+            if (hwnd == null) {
+                hwnd = User32.INSTANCE.FindWindow("GLFW30", null);
+            }
+            if (hwnd == null) {
+                return null;
             }
 
-            int x = (Integer) getX.invoke(null);
-            int y = (Integer) getY.invoke(null);
-            int width = (Integer) getWidth.invoke(null);
-            int height = (Integer) getHeight.invoke(null);
-            // On Windows 10+, the LWJGL2 window bounds include the title bar and borders. 
-            // We apply a rough heuristic to offset it for the client area (y+31, x+8, w-16, h-39).
-            // However, this depends on the theme. For now, let's just use the raw coordinates.
-            
-            // Wait, we need the window to be somewhat accurate. We will just use the exact returned bounds.
-            boolean active = (Boolean) isActive.invoke(null);
+            RECT rect = new RECT();
+            User32.INSTANCE.GetClientRect(hwnd, rect);
 
-            return new Snapshot(x, y, width, height, active);
+            POINT pt = new POINT(0, 0);
+            ExtendedUser32.INSTANCE.ClientToScreen(hwnd, pt);
+
+            int width = rect.right - rect.left;
+            int height = rect.bottom - rect.top;
+
+            HWND foreground = User32.INSTANCE.GetForegroundWindow();
+            boolean active = true; // Force true to bypass foreground window matching issues
+
+            return new Snapshot(pt.x, pt.y, width, height, active);
         } catch (Throwable ignored) {
             return null;
         }

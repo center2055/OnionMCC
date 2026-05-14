@@ -350,6 +350,68 @@ public class MinecraftAccessor {
 
     // ── GameSettings ─────────────────────────────────────────────────
 
+    public int getKeyBindCode(String bindingName, String obf1, String obf2) {
+        Object gs = getGameSettings();
+        if (gs == null) return 0;
+        try {
+            Field keyField = null;
+            for (Field f : gs.getClass().getDeclaredFields()) {
+                if (f.getName().equals(bindingName) || f.getName().equals(obf1) || f.getName().equals(obf2)) {
+                    keyField = f;
+                    break;
+                }
+            }
+            if (keyField != null) {
+                keyField.setAccessible(true);
+                Object keyBinding = keyField.get(gs);
+                if (keyBinding != null) {
+                    for (Field f : keyBinding.getClass().getDeclaredFields()) {
+                        if (f.getType() == int.class) {
+                            f.setAccessible(true);
+                            return f.getInt(keyBinding);
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return 0;
+    }
+
+    public void setKeyBindCode(String bindingName, String obf1, String obf2, int keyCode) {
+        Object gs = getGameSettings();
+        if (gs == null) return;
+        try {
+            Field keyField = null;
+            for (Field f : gs.getClass().getDeclaredFields()) {
+                if (f.getName().equals(bindingName) || f.getName().equals(obf1) || f.getName().equals(obf2)) {
+                    keyField = f;
+                    break;
+                }
+            }
+            if (keyField != null) {
+                keyField.setAccessible(true);
+                Object keyBinding = keyField.get(gs);
+                if (keyBinding != null) {
+                    for (Field f : keyBinding.getClass().getDeclaredFields()) {
+                        if (f.getType() == int.class) {
+                            f.setAccessible(true);
+                            f.setInt(keyBinding, keyCode);
+                            return;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    public void setKeyBindAttackPressed(boolean pressed) {
+        setKeyBindState("keyBindAttack", "ad", "field_74312_F", pressed);
+    }
+
+    public void setKeyBindUseItemPressed(boolean pressed) {
+        setKeyBindState("keyBindUseItem", "ae", "field_74313_G", pressed);
+    }
+
     public void setKeyBindSneakPressed(boolean pressed) {
         Object gs = getGameSettings();
         if (gs == null) return;
