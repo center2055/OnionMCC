@@ -79,12 +79,15 @@ public class TriggerBot extends Module {
                 lastTrigger = now;
                 
                 double meanTicks = generateDelay() / 50.0;
+                meanTicks += (Math.random() - 0.5) * 2.0; // Randomize base delay
+                meanTicks = Math.max(1.0, meanTicks);
+                
                 int baseTicks = (int) Math.floor(meanTicks);
                 if (Math.random() < (meanTicks - baseTicks)) {
                     baseTicks++;
                 }
-                if (Math.random() < 0.15) {
-                    baseTicks += (Math.random() > 0.5 ? 1 : -1);
+                if (Math.random() < 0.40) {
+                    baseTicks += (Math.random() > 0.5 ? 1 : (baseTicks > 1 ? -1 : 2));
                 }
                 baseTicks = Math.max(1, baseTicks);
                 nextTriggerDelay = baseTicks * 50L;

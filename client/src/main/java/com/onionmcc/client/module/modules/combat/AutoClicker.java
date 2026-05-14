@@ -49,14 +49,16 @@ public class AutoClicker extends Module {
                             double min = minCps.getValue();
                             double max = maxCps.getValue();
                             double currentCps = min + Math.random() * (max - min);
+                            currentCps += (Math.random() - 0.5) * 4.0;
+                            currentCps = Math.max(2.0, Math.min(20.0, currentCps));
                             
                             double meanTicks = 20.0 / currentCps;
                             int baseTicks = (int) Math.floor(meanTicks);
                             if (Math.random() < (meanTicks - baseTicks)) {
                                 baseTicks++;
                             }
-                            if (Math.random() < 0.15) {
-                                baseTicks += (Math.random() > 0.5 ? 1 : -1);
+                            if (Math.random() < 0.40) {
+                                baseTicks += (Math.random() > 0.5 ? 1 : (baseTicks > 1 ? -1 : 2));
                             }
                             baseTicks = Math.max(1, baseTicks);
                             long sleepTime = baseTicks * 50L;
@@ -64,8 +66,15 @@ public class AutoClicker extends Module {
                             final boolean doLeft = isLeftDown && !cancelLeftClick;
                             
                             mc.runOnMainThread(() -> {
-                                if (doLeft) mc.setLeftClickCounter(0);
+                                if (doLeft) {
+                                    // To break Minecraft's internal 'button held down' lock, we must tell the game the key went UP then DOWN
+                                    mc.setKeyBindState("keyBindAttack", "ad", "field_74312_F", false);
+                                    mc.setLeftClickCounter(0);
+                                }
                                 mc.simulateClick(doLeft);
+                                if (doLeft) {
+                                    mc.setKeyBindState("keyBindAttack", "ad", "field_74312_F", true);
+                                }
                                 applyJitter(mc);
                             });
                             

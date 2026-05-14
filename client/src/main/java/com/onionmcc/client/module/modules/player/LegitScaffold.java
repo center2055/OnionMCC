@@ -37,7 +37,7 @@ public class LegitScaffold extends Module {
     @Override
     public void onTick() {
         MinecraftAccessor mc = OnionMCC.getInstance().getMinecraft();
-        if (!mc.isInGame() || mc.getCurrentScreen() != null) return;
+        if (!mc.isInGame()) return;
 
         Object player = mc.getPlayer();
         if (player == null) return;
@@ -53,9 +53,13 @@ public class LegitScaffold extends Module {
             return;
         }
         
-        double x = mc.getEntityPosX(player);
-        double y = mc.getEntityPosY(player) - 1.0D;
-        double z = mc.getEntityPosZ(player);
+        double motionX = mc.getEntityMotionX(player);
+        double motionZ = mc.getEntityMotionZ(player);
+        
+        // Extrapolate slightly ahead of the player's movement to detect the edge before walking off
+        double x = mc.getEntityPosX(player) + motionX * 1.5;
+        double y = mc.getEntityPosY(player) - 0.5D;
+        double z = mc.getEntityPosZ(player) + motionZ * 1.5;
 
         boolean overAir = mc.isAirBlock(Math.floor(x), Math.floor(y), Math.floor(z));
 

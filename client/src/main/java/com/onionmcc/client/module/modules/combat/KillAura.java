@@ -110,14 +110,16 @@ public class KillAura extends Module {
                 lastAttack = now;
                 
                 double targetAps = aps.getValue();
+                targetAps += (Math.random() - 0.5) * 6.0;
+                targetAps = Math.max(2.0, Math.min(20.0, targetAps));
+                
                 double meanTicks = 20.0 / targetAps;
                 int baseTicks = (int) Math.floor(meanTicks);
                 if (Math.random() < (meanTicks - baseTicks)) {
                     baseTicks++;
                 }
-                // Add occasional heavy jitter
-                if (Math.random() < 0.15) {
-                    baseTicks += (Math.random() > 0.5 ? 1 : -1);
+                if (Math.random() < 0.40) {
+                    baseTicks += (Math.random() > 0.5 ? 1 : (baseTicks > 1 ? -1 : 2));
                 }
                 baseTicks = Math.max(1, baseTicks);
                 nextAttackDelay = baseTicks * 50L;

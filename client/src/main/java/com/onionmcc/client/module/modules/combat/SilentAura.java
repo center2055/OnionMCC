@@ -64,17 +64,22 @@ public class SilentAura extends Module {
                 lastAttack = now;
                 final Object target = bestTarget;
                 
-                // Pure tick-based randomization to bypass Matrix stdDev 0.0
                 double targetAps = aps.getValue();
+                // Randomize APS wildly per click to force Matrix stdDev to spike
+                targetAps += (Math.random() - 0.5) * 6.0;
+                targetAps = Math.max(2.0, Math.min(20.0, targetAps));
+                
                 double meanTicks = 20.0 / targetAps;
                 int baseTicks = (int) Math.floor(meanTicks);
                 if (Math.random() < (meanTicks - baseTicks)) {
                     baseTicks++;
                 }
-                // Add occasional heavy jitter
-                if (Math.random() < 0.15) {
-                    baseTicks += (Math.random() > 0.5 ? 1 : -1);
+                
+                // Force extreme jitter 40% of the time
+                if (Math.random() < 0.40) {
+                    baseTicks += (Math.random() > 0.5 ? 1 : (baseTicks > 1 ? -1 : 2));
                 }
+                
                 baseTicks = Math.max(1, baseTicks);
                 nextAttackDelay = baseTicks * 50L;
 
