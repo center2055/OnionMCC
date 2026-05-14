@@ -1230,6 +1230,7 @@ public class LauncherApp extends Application {
         addDefaultModule("ArrayList", "RENDER", "Displays enabled modules on screen");
         addDefaultModule("ESP", "RENDER", "Draws boxes around players");
         addDefaultModule("Tracers", "RENDER", "Draws lines to players");
+        addDefaultModule("Borderless", "RENDER", "Forces borderless windowed mode for overlays");
 
         addDefaultModule("Teams", "PLAYER", "Prevents attacking teammates");
         addDefaultModule("Friends", "PLAYER", "Middle-click players to friend them");

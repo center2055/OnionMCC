@@ -43,6 +43,7 @@ public class ModuleManager {
         register(new com.onionmcc.client.module.modules.render.ArrayListMod());
         register(new com.onionmcc.client.module.modules.render.ESP());
         register(new com.onionmcc.client.module.modules.render.Tracers());
+        register(new com.onionmcc.client.module.modules.render.Borderless());
 
         // ── Player ──────────────────────────────────
         register(new Teams());

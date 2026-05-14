@@ -83,7 +83,7 @@ public final class DisplayAccess {
         }
     }
 
-    private static HWND findMinecraftWindow() {
+    public static HWND findMinecraftWindow() {
         HWND preferred = findWindowForCurrentProcess(true);
         if (preferred != null) {
             return preferred;
