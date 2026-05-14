@@ -69,9 +69,23 @@ public class AutoClicker extends Module {
                             final boolean doLeft = isLeftDown && !cancelLeftClick;
                             
                             mc.runOnMainThread(() -> {
-                                if (doLeft) mc.setLeftClickCounter(0);
-                                mc.simulateClick(doLeft);
-                                applyJitter(mc);
+                                boolean blockClick = false;
+                                if (doLeft) {
+                                    com.onionmcc.client.module.Module ka = OnionMCC.getInstance().getModuleManager().getModule("KillAura");
+                                    if (ka instanceof com.onionmcc.client.module.modules.combat.KillAura) {
+                                        if (ka.isEnabled() && ((com.onionmcc.client.module.modules.combat.KillAura)ka).hasTarget()) {
+                                            blockClick = true;
+                                        }
+                                    }
+                                }
+                                
+                                if (doLeft && !blockClick) {
+                                    mc.setLeftClickCounter(0);
+                                    mc.simulateClick(true);
+                                    applyJitter(mc);
+                                } else if (!doLeft) {
+                                    mc.simulateClick(false);
+                                }
                             });
                             
                             Thread.sleep(sleepTime);

@@ -221,6 +221,12 @@ public class MappingManager {
         ClassMapping container = new ClassMapping("xi", "net.minecraft.inventory.Container");
         classMappings.put("net.minecraft.inventory.Container", container);
 
+        ClassMapping activeRenderInfo = new ClassMapping("auz", "net.minecraft.client.renderer.ActiveRenderInfo");
+        activeRenderInfo.addFieldMapping("MODELVIEW", "a,field_74594_j");
+        activeRenderInfo.addFieldMapping("PROJECTION", "b,field_74595_k");
+        activeRenderInfo.addFieldMapping("VIEWPORT", "c,field_74592_l");
+        classMappings.put("net.minecraft.client.renderer.ActiveRenderInfo", activeRenderInfo);
+
         System.out.println("[OnionMCC] Loaded " + classMappings.size() + " default mappings for 1.8.9");
     }
 

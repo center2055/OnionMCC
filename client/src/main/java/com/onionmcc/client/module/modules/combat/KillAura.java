@@ -32,6 +32,10 @@ public class KillAura extends Module {
         super("KillAura", "Fractional APS Aura", ModuleCategory.COMBAT, 0x52); 
     }
 
+    public boolean hasTarget() {
+        return currentTarget != null;
+    }
+
     @Override
     protected void onEnable() {
         lastAttack = 0L;
